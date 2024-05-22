@@ -13,6 +13,7 @@
     "@commitlint/cli": "17.1.2",
     "@commitlint/config-conventional": "17.1.0",
     "commitlint": "17.1.2",
-    "husky": "8.0.1"
+    "husky": "8.0.1",
+    "rollup": "^4.18.0"
   }
 }
