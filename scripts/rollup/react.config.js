@@ -7,6 +7,7 @@ const pkgPath = resolvePkgPath(name);
 const pkgDistPath = resolvePkgPath(name, true);
 
 export default [
+    // react
     {
         input: `${pkgPath}/${module}`,
         output: {
@@ -29,10 +30,10 @@ export default [
     {
         input: `${pkgPath}/src/jsx.ts`,
         output: [
-            // jsx-runtime
+            // jsx-dev-runtime
             {
-                file: `${pkgDistPath}/jsx-runtime.js`,
-                name: 'jsx-runtime.js',
+                file: `${pkgDistPath}/jsx-dev-runtime.js`,
+                name: 'jsx-dev-runtime.js',
                 formate: 'umd'
             },
             // dev-runtime
