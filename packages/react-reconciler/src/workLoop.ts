@@ -1,11 +1,38 @@
 import { beginWork } from "./beginWork";
 import { completeWork } from "./completeWork";
-import { FiberNode } from "./fiber";
+import { FiberNode, FiberRootNode, createWorkInProgress } from "./fiber";
+import { HostRoot } from "./workTags";
 
 let workInProgress: FiberNode | null;
 
-function prepareRefreshStack(fiber: FiberNode) {
-    workInProgress = fiber;
+function prepareRefreshStack(root: FiberRootNode) {
+    workInProgress = createWorkInProgress(
+        root.current,
+        {}
+    );
+}
+
+export function scheduleUpdateOnFiber(fiber: FiberNode) {
+    // TODO: 调度功能
+    const root = markUpdateFromFiberToRoot(fiber);
+    renderRoot(root);
+}
+
+// QUESTION: fiberRootNode 不应该只有一个吗，那存在一个全局变量里不就好了，为什么还要
+// 往上查找。
+export function markUpdateFromFiberToRoot(
+    fiber: FiberNode
+) {
+    let node = fiber;
+    let parent = node.return;
+    while (parent !== null) {
+        node = parent;
+        parent = node.return;
+    }
+    if (node.tag === HostRoot) {
+        return node.stateNode;
+    }
+    return null;
 }
 
 function completeUnitOfWork(fiber: FiberNode) {
