@@ -9,18 +9,16 @@ export function beginWork(wip: FiberNode) {
     // 比较，返回子 fiberNode
     switch (wip.tag) {
         case HostRoot:
-            updateHostRoot(wip);
-            return;
+            return updateHostRoot(wip);
         case HostComponent:
-            updateHostComponent(wip);
-            return;
+            return updateHostComponent(wip);
         case HostText:
             return null; // 叶子节点
         default:
             if (__DEV__) {
                 console.warn('beginWork 未实现的类型');
             }
-            return;
+            return null;
     }
 }
 

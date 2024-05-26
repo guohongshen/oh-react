@@ -13,6 +13,7 @@ export class FiberNode {
     memoizedState: any;
     alternate: FiberNode | null;
     flags: Flags;
+    subtreeFlags: Flags;
     updateQueue: UpdateQueue | null;
     /**
      * 对于 FunctionComponent，type 就是 Function
@@ -45,6 +46,7 @@ export class FiberNode {
         this.updateQueue = null;
 
         this.flags = NoFlags;
+        this.subtreeFlags = NoFlags;
     }
 }
 
@@ -94,6 +96,7 @@ export function createWorkInProgress(
         // update
         wip.pendingProps = pendingProps;
         wip.flags = NoFlags; // QUESTION 这里为什么要这么做呢？
+        wip.subtreeFlags = NoFlags;
     }
     wip.type = current.type;
     wip.updateQueue = current.updateQueue;

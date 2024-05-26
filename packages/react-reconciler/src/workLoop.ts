@@ -69,7 +69,7 @@ function workLoop() {
     }
 }
 
-function renderRoot(root: FiberNode ) {
+function renderRoot(root: FiberRootNode ) {
     // 初始化
     prepareRefreshStack(root);
 
@@ -86,6 +86,12 @@ function renderRoot(root: FiberNode ) {
             }
             workInProgress = null;
         }
-    } while (true)
+    } while (true);
+
+    const finishedWork = root.current.alternate;
+    root.finishedWork = finishedWork;
+
+    // wip fiberNode 树中的 flags
+    commitRoot(root);
 }
 
