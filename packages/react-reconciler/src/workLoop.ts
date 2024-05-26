@@ -81,7 +81,9 @@ function renderRoot(root: FiberNode ) {
             workLoop();
             break;
         } catch (err) {
-            console.log('workLoop 发生错误');
+            if (__DEV__) {
+                console.log('workLoop 发生错误');
+            }
             workInProgress = null;
         }
     } while (true)
