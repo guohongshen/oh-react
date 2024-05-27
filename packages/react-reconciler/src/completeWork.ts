@@ -1,4 +1,4 @@
-import { Container, Instance, appendInitialChild, createInstance } from "hostConfig";
+import { Container, Instance, appendInitialChild, createInstance, createTextInstance } from "hostConfig";
 import { FiberNode } from "./fiber";
 import { HostComponent, HostRoot, HostText } from "./workTags";
 import { NoFlags } from "./fiberFlags";
@@ -27,7 +27,7 @@ export function completeWork(wip: FiberNode) {
                 // update
             } else {
                 // 1. 构建 DOM
-                const instance = createInstance(newProps.content);
+                const instance = createTextInstance(newProps.content);
                 wip.stateNode = instance;
             }
             bubbleProperties(wip);
