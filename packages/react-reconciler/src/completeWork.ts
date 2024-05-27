@@ -1,4 +1,4 @@
-import { appendInitialChild, createInstance } from "hostConfig";
+import { Container, Instance, appendInitialChild, createInstance } from "hostConfig";
 import { FiberNode } from "./fiber";
 import { HostComponent, HostRoot, HostText } from "./workTags";
 import { NoFlags } from "./fiberFlags";
@@ -43,7 +43,7 @@ export function completeWork(wip: FiberNode) {
     }
 }
 
-function appendAllChildren(parent: FiberNode, wip: FiberNode) {
+function appendAllChildren(parent: Container | Instance, wip: FiberNode) {
     let node = wip.child;
 
     while (node !== null) {
