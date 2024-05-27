@@ -1,6 +1,7 @@
 import { beginWork } from "./beginWork";
 import { completeWork } from "./completeWork";
 import { FiberNode, FiberRootNode, createWorkInProgress } from "./fiber";
+import { MutationMask, NoFlags } from "./fiberFlags";
 import { HostRoot } from "./workTags";
 
 let workInProgress: FiberNode | null;
@@ -52,6 +53,38 @@ function completeUnitOfWork(fiber: FiberNode) {
     } while (node !== null);
 }
 
+function commitRoot(root: FiberRootNode) {
+    const finishedWork = root.finishedWork;
+
+    if (finishedWork === null) {
+        return;
+    }
+
+    if (__DEV__) {
+        console.warn('commit 阶段开始', finishedWork);
+    }
+
+    // 重置
+    root.finishedWork = null;
+
+    // 判断是否存在三个子阶段需要执行的操作
+    
+    const subtreeHasEffect = (finishedWork.subtreeFlags & MutationMask) !== NoFlags;
+    const rootHasEffect = (finishedWork.flags & MutationMask) !== NoFlags;
+
+    if (subtreeHasEffect || rootHasEffect) {
+        // beforeMutation
+
+        // mutation
+
+        root.current = finishedWork; // wipTree -> current
+
+        // layout
+    } else {
+
+    }
+}
+
 function performUnitOfWork(fiber: FiberNode) {
     const next = beginWork(fiber);
     fiber.memoizedProps = fiber.pendingProps; // 其实可以放在 beginWork 里面？
@@ -94,4 +127,3 @@ function renderRoot(root: FiberRootNode ) {
     // wip fiberNode 树中的 flags
     commitRoot(root);
 }
-
