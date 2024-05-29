@@ -1,8 +1,9 @@
 import { ReactElement } from "shared/ReactTypes";
 import { FiberNode } from "./fiber";
 import { UpdateQueue, processUpdateQueue } from "./updateQueue";
-import { HostComponent, HostRoot, HostText } from "./workTags";
+import { FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
 import { mountChildFibers, reconcileChildFibers } from "./childFibers";
+import { renderWithHooks } from "./fiberHooks";
 
 // 递归中的递阶段
 export function beginWork(wip: FiberNode) {
@@ -14,6 +15,8 @@ export function beginWork(wip: FiberNode) {
             return updateHostComponent(wip);
         case HostText:
             return null; // 叶子节点
+        case FunctionComponent:
+            return updateFunctionComponent(wip);
         default:
             if (__DEV__) {
                 console.warn('beginWork 未实现的类型');
@@ -41,6 +44,17 @@ function updateHostComponent(wip: FiberNode) {
     reconcileChildren(wip, nextChildren);
     return wip.child;
 }
+
+function updateFunctionComponent(wip: FiberNode) {
+    const nextProps = wip.pendingProps;
+    const nextChildren = renderWithHooks(wip);
+
+    console.log('nextChildren: ', nextChildren);
+    
+    reconcileChildren(wip, nextChildren);
+    return wip.child;
+}
+
 
 /**
  * 将 wip.alternate 与 children 进行比较。
