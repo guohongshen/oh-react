@@ -42,7 +42,8 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode) {
 
 function commitPlacement(finishedWork: FiberNode) {
     if (__DEV__) {
-        console.warn('执行 DOM 操作', finishedWork);
+        console.warn('执行 Placement 操作', finishedWork);
+        // debugger;
     }
     // 找到 parent DOM
     const hostParent = getHostParent(finishedWork);
