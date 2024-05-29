@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { jsxDEV } from 'react/jsx-dev-runtime';
 
 function App(params) {
+  const [num, setNum] = useState(100);
+  (window as any).asd = setNum;
   return (
-    <div>
-      <Child></Child>
+    <div onClick={() => {
+      setNum(num + 1)
+    }}>
+      {num}
     </div>
   );
 }
