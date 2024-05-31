@@ -15,6 +15,7 @@ export class FiberNode {
     flags: Flags;
     subtreeFlags: Flags;
     updateQueue: UpdateQueue | null;
+    deletions: FiberNode[] | null;
     /**
      * 对于 FunctionComponent，type 就是 Function
      */
@@ -45,6 +46,8 @@ export class FiberNode {
         this.alternate = null;
         this.updateQueue = null;
 
+        // 副作用
+        this.deletions = null;
         this.flags = NoFlags;
         this.subtreeFlags = NoFlags;
     }
@@ -97,6 +100,7 @@ export function createWorkInProgress(
         wip.pendingProps = pendingProps;
         wip.flags = NoFlags; // QUESTION 这里为什么要这么做呢？
         wip.subtreeFlags = NoFlags;
+        wip.deletions = null;
     }
     wip.type = current.type;
     wip.updateQueue = current.updateQueue;
