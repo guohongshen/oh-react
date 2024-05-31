@@ -1,5 +1,7 @@
 const { defaults } = require('jest-config');
 
+// 提示：jest 会自动读取项目目录下的 babel.config.js
+
 module.exports = {
     ...defaults,
     rootDir: process.cwd(),

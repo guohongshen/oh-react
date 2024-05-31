@@ -3,7 +3,7 @@ import { ReactElement } from "shared/ReactTypes";
 import { createRoot } from "react-dom";
 
 
-export function renderIntoContainer(element: ReactElement) {
+export function renderIntoDocument(element: ReactElement) {
     const div = document.createElement('div');
-    createRoot(div).render(element);
+    return createRoot(div).render(element);
 }
