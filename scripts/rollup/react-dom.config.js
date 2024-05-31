@@ -11,18 +11,18 @@ console.log(pkgDistPath);
 console.log(pkgPath);
 console.log(module);
 export default [
-    // react
+    // react-dom
     {
         input: `${pkgPath}/${module}`,
         output: [
             {
                 file: `${pkgDistPath}/index.js`,
-                name: 'index.js',
+                name: 'ReactDOM',
                 format: 'umd'
             },
             {
                 file: `${pkgDistPath}/client.js`,
-                name: 'client.js',
+                name: 'client',
                 format: 'umd'
             },
         ],
@@ -48,6 +48,26 @@ export default [
                     main: 'index.js'
                 })
             })
+        ]
+    },
+    // react-test-utils
+    {
+        input: `${pkgPath}/test-utils.ts`,
+        output: [
+            {
+                file: `${pkgDistPath}/test-utils.js`,
+                name: 'testUtils',
+                format: 'umd'
+            },
+            {
+                file: `${pkgDistPath}/client.js`,
+                name: 'client.js',
+                format: 'umd'
+            },
+        ],
+        external: ['react-dom', 'react'], // 防止将 react react-dom 打到 testUtils 里面
+        plugins: [
+            ...getBaseRollupPlugins(),
         ]
     },
 ];

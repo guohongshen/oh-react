@@ -12,7 +12,7 @@ export default [
         input: `${pkgPath}/${module}`,
         output: {
             file: `${pkgDistPath}/index.js`,
-            name: 'index.js',
+            name: 'React',
             format: 'umd'
         },
         plugins: [...getBaseRollupPlugins(), generatePackageJson({
@@ -33,13 +33,13 @@ export default [
             // jsx-dev-runtime
             {
                 file: `${pkgDistPath}/jsx-dev-runtime.js`,
-                name: 'jsx-dev-runtime.js',
+                name: 'jsx-dev-runtime',
                 formate: 'umd'
             },
             // dev-runtime
             {
                 file: `${pkgDistPath}/dev-runtime.js`,
-                name: 'dev-runtime.js',
+                name: 'dev-runtime',
                 formate: 'umd'
             }
         ],
