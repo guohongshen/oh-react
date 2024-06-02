@@ -79,6 +79,7 @@ function commitDeletion(childToDelete: FiberNode) {
     let rootHostNode: FiberNode | null = null;
     // 递归子树
     commitNestedComponent(childToDelete, unmountFiber => {
+        console.log('onCommitUnmount: ', unmountFiber.tag);
         switch (unmountFiber.tag) {
             case HostComponent:
                 if (rootHostNode === null) {
@@ -92,7 +93,7 @@ function commitDeletion(childToDelete: FiberNode) {
                 }
                 return;
             case FunctionComponent:
-                // TODO useEffect unmount:
+                // TODO useEffect、unmount、解绑 ref
                 return;
             default:
                 if (__DEV__) {
@@ -104,9 +105,13 @@ function commitDeletion(childToDelete: FiberNode) {
 
     // 移除 rootHostNode 的 DOM
     if (rootHostNode !== null) {
-        const hostParent = getHostParent(childToDelete);
+        const hostParent = getHostParent(childToDelete); // child text
+        console.log('childToDelete: ', childToDelete);
+        (window as any).getHostParent = getHostParent;
         // 单一节点，只考虑有一个子树的情况
-        (hostParent !== null) && removeChild(rootHostNode, hostParent);
+        if (hostParent !== null) {
+            removeChild((rootHostNode as FiberNode).stateNode, hostParent);
+        }
     }
     childToDelete.return = null;
     childToDelete.child = null;
@@ -116,7 +121,7 @@ function commitNestedComponent(
     root: FiberNode,
     onCommitUnmount: (fiber: FiberNode) => void
 ) {
-    /*let node = root;
+    let node = root;
     while (true) {
         onCommitUnmount(node);
 
@@ -136,8 +141,8 @@ function commitNestedComponent(
         }
         node.sibling.return = node.return;
         node = node.sibling;
-    }*/
-    let node = root;
+    }
+    /*node = root;
     function toLeave(n: FiberNode) {
         while (n.child !== null) {
             n = n.child;
@@ -159,7 +164,7 @@ function commitNestedComponent(
                 node = node.return;
             }
         }
-    }
+    }*/
 }
 
 function getHostParent(fiber: FiberNode): Container | null {

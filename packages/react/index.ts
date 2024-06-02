@@ -15,6 +15,6 @@ export const Sharing = {
 export const version = '0.0.0';
 
 // TODO 根据环境区分 jsx 还是 jsxDEV
-export const createElement = jsx;
+export const createElement = jsxDEV;
 
 export const isValidElement = _isValidElement;

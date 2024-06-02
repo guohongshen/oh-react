@@ -5,22 +5,20 @@ import { jsxDEV } from 'react/jsx-dev-runtime';
 function App(params) {
   const [num, setNum] = useState(100);
   (window as any).asd = setNum;
-  return (
+  const jsx = (
     <div onClick={() => {
       setNum(num + 1)
     }}>
       {num}
     </div>
   );
+  console.log('jsx: ', jsx);
+  return num === 3 ? <Child /> : jsx;
 }
 
 function Child(params) {
   return <span>Big-React</span>
 }
-
-console.log(<App/>);
-console.log('JSX: ', jsxDEV);
-
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />,

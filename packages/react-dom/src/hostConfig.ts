@@ -44,5 +44,7 @@ export function removeChild(
     child: Instance | textInstance,
     container: Container
 ) {
+    console.log('child: ',child);
+    console.log('container: ', container);
     container.removeChild(child);
 }
