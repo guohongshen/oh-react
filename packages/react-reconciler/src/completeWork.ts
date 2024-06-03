@@ -2,6 +2,7 @@ import { Container, Instance, appendInitialChild, createInstance, createTextInst
 import { FiberNode } from "./fiber";
 import { FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
 import { NoFlags, Update } from "./fiberFlags";
+import { injectProps } from "react-dom/src/SyntheticEvent";
 
 export function markUpdate(fiber: FiberNode) {
     fiber.flags |= Update;
@@ -17,6 +18,11 @@ export function completeWork(wip: FiberNode) {
         case HostComponent:
             if (current !== null && wip.stateNode) {
                 // update
+                // 1. props 是否变化 { onCLick: xx } { onCLick: xxx }
+                // wip.updateQueue = [k, v, k, v, ...]
+                // 2. 变 Update flag
+                // className style 等
+                injectProps(wip.stateNode, newProps);
             } else {
                 // 1. 构建 DOM
                 const instance = createInstance(wip.type, newProps);

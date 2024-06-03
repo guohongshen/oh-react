@@ -7,9 +7,6 @@ import { log } from "console";
 const { name, module, peerDependencies } = getPackageJSON('react-dom');
 const pkgPath = resolvePkgPath(name);
 const pkgDistPath = resolvePkgPath(name, true);
-console.log(pkgDistPath);
-console.log(pkgPath);
-console.log(module);
 export default [
     // react-dom
     {

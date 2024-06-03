@@ -1,14 +1,17 @@
 import { FiberNode } from "react-reconciler/src/fiber";
 import { HostText } from "react-reconciler/src/workTags";
+import { injectProps, DOMElement } from "./SyntheticEvent";
 
 export type Container = Element;
 export type Instance = Element;
 export type textInstance = Text;
 
 export function createInstance (type: string, props?: any): Instance {
-    // TODO 处理 props
-    const element = document.createElement(type);
-    return element;
+    const element = document.createElement(type) as unknown;
+    if (!!props) {
+        injectProps(element as DOMElement, props);
+    }
+    return element as Instance;
 }
 
 export function appendInitialChild(parent: Instance | Container, child: Instance) {
@@ -44,7 +47,5 @@ export function removeChild(
     child: Instance | textInstance,
     container: Container
 ) {
-    console.log('child: ',child);
-    console.log('container: ', container);
     container.removeChild(child);
 }

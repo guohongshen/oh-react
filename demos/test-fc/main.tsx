@@ -13,7 +13,11 @@ function App(params) {
     </div>
   );
   console.log('jsx: ', jsx);
-  return num === 3 ? <Child /> : jsx;
+  return <div onClick={() => {
+    console.log('点击');
+    
+    setNum(num + 1)
+  }}>{num}</div>;
 }
 
 function Child(params) {

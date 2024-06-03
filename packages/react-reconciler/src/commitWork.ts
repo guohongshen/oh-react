@@ -79,7 +79,6 @@ function commitDeletion(childToDelete: FiberNode) {
     let rootHostNode: FiberNode | null = null;
     // 递归子树
     commitNestedComponent(childToDelete, unmountFiber => {
-        console.log('onCommitUnmount: ', unmountFiber.tag);
         switch (unmountFiber.tag) {
             case HostComponent:
                 if (rootHostNode === null) {
@@ -106,7 +105,6 @@ function commitDeletion(childToDelete: FiberNode) {
     // 移除 rootHostNode 的 DOM
     if (rootHostNode !== null) {
         const hostParent = getHostParent(childToDelete); // child text
-        console.log('childToDelete: ', childToDelete);
         (window as any).getHostParent = getHostParent;
         // 单一节点，只考虑有一个子树的情况
         if (hostParent !== null) {

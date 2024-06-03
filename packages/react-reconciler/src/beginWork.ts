@@ -48,9 +48,6 @@ function updateHostComponent(wip: FiberNode) {
 function updateFunctionComponent(wip: FiberNode) {
     const nextProps = wip.pendingProps;
     const nextChildren = renderWithHooks(wip);
-
-    console.log('nextChildren: ', nextChildren);
-    
     reconcileChildren(wip, nextChildren);
     return wip.child;
 }
