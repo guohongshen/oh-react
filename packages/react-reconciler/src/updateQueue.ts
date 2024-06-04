@@ -34,6 +34,12 @@ export function enqueueUpdate<State>(
     updateQueue.shared.pending = update;
 }
 
+/**
+ * 消费一个 update，注意是一个。
+ * @param baseState 
+ * @param pendingUpdate 
+ * @returns 
+ */
 export function processUpdateQueue<State>(
     baseState: State,
     pendingUpdate: Update<State> | null

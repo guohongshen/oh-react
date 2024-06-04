@@ -13,11 +13,12 @@ function App(params) {
     </div>
   );
   console.log('jsx: ', jsx);
-  return <div onClick={() => {
-    console.log('点击');
-    
-    setNum(num + 1)
-  }}>{num}</div>;
+  return num !== 3
+    ? <div>
+    </div>
+    : <div>
+    <span></span>
+    </div>;
 }
 
 function Child(params) {
@@ -25,5 +26,5 @@ function Child(params) {
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-    <App />,
+  <App/>,
 )

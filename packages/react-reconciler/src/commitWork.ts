@@ -6,18 +6,20 @@ import { ExecFileOptionsWithBufferEncoding } from "child_process";
 
 let nextEffect: FiberNode | null = null;
 
+/**
+ * 利用 DFS 和 subtreeFlags 完成 mutation。
+ * @param finishedWork 
+ */
 export function commitMutationEffects(finishedWork: FiberNode) {
     nextEffect = finishedWork;
-
-    while (nextEffect !== null) {
-        // 向下遍历
+    // 两个 while 实现 DFS:
+    while (nextEffect !== null) { // 这个 while 是用来向下遍历的
         const child: FiberNode | null = nextEffect.child;
 
         if ((nextEffect.subtreeFlags & MutationMask) !== NoFlags && child !== null) {
             nextEffect = child;
         } else {
-            // 向上遍历 DFS
-            up: while (nextEffect !== null) {
+            up: while (nextEffect !== null) { // 这个 while 是用来向上遍历的
                 commitMutationEffectsOnFiber(nextEffect);
                 const sibling: FiberNode | null = nextEffect.sibling;
                 if (sibling) {

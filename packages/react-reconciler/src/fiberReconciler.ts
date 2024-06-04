@@ -6,6 +6,12 @@ import { ReactElement } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 
 
+/**
+ * 创建 fiberRootNode 和 fiberRootNode，并返回 fiberRootNode。注意此时还是初始阶段，
+ * 但 fiberRootNode.current 已经不为空且指向创建的 fiberRootNode。
+ * @param container 即 <div id="root">...</div>
+ * @returns 
+ */
 export function createContainer(container: Container) {
     const hostRootFiber = new FiberNode(
         HostRoot,
@@ -17,6 +23,12 @@ export function createContainer(container: Container) {
     return root;
 }
 
+/**
+ * 初始渲染，利用 Update 机制触发, update 的内容就是根组件渲染出来的 ReactElement。
+ * @param element 
+ * @param root 
+ * @returns 
+ */
 export function updateContainer(
     element: ReactElement | null,
     root: FiberRootNode

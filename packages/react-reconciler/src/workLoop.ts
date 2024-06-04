@@ -14,6 +14,10 @@ function prepareRefreshStack(root: FiberRootNode) {
     );
 }
 
+/**
+ * 此 fiber 新增了一个 update，开始调度。
+ * @param fiber 
+ */
 export function scheduleUpdateOnFiber(fiber: FiberNode) {
     // TODO: 调度功能
     const root = markUpdateFromFiberToRoot(fiber);
@@ -99,7 +103,7 @@ function performUnitOfWork(fiber: FiberNode) {
 }
 
 function workLoop() {
-    while (workInProgress !== null) {
+    while (workInProgress !== null) { // TODO !shouldYield()
         performUnitOfWork(workInProgress);
     }
 }
