@@ -14,8 +14,6 @@ export function createRoot (container: Container) {
     return {
         render(element: ReactElement) { // element 传入 <App/>
             initEvent(container, 'click');
-            console.log('[初始]', element);
-            
             return updateContainer(element, root);
         }
     }

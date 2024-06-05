@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { jsxDEV } from 'react/jsx-dev-runtime';
 
-function App(params) {
+function App() {
   const [num, setNum] = useState(100);
   (window as any).asd = setNum;
-  const jsx = (
-    <div onClick={() => {
-      setNum(num + 1)
-    }}>
-      {num}
-    </div>
-  );
-  console.log('jsx: ', jsx);
-  return num !== 3
+  const res = num !== 3
     ? <div>
+      <span key="000"></span>
+      <span key="001"></span>
+      <span key="002"></span>
     </div>
     : <div>
-    <span></span>
+    <span key="002"></span>
     </div>;
+    (window as any).res = res;
+    return res;
 }
 
 function Child(params) {
