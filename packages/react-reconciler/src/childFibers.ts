@@ -1,8 +1,10 @@
-import { Props, ReactElement } from "shared/ReactTypes";
+import { Key, Props, ReactElement } from "shared/ReactTypes";
 import { FiberNode, createWorkInProgress } from "./fiber";
 import { REACT_ELEMENT_TYPE } from "shared/ReactSymbols";
 import { FunctionComponent, HostComponent, HostText, WorkTag } from "./workTags";
 import { ChildDeletion, Placement } from "./fiberFlags";
+
+type ExistingChildren = Map<Key, FiberNode>;
 
 function ChildReconciler(shouldTrackEffects: boolean) {
     function deleteChild (returnFiber: FiberNode, childToDelete: FiberNode) {
@@ -99,6 +101,139 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         }
         return fiber;
     }
+    function getKey(item: any): Key {
+        return item.key !== null
+            ? item.key
+            : item.index;
+    }
+    function updateFromMap(
+        returnFiber: FiberNode,
+        existingChildren: ExistingChildren,
+        index: number,
+        element: any
+    ): FiberNode | null {
+        const key = getKey(element);
+        const before = existingChildren.get(key);
+        if (typeof element === 'string' || typeof element === 'number') {
+            // HostText
+            if (before !== undefined) {
+                if (before.tag === HostText) {
+                    existingChildren.delete(key);
+                    return useFiber(before, { content: element + '' });
+                }
+            }
+            return new FiberNode(
+                HostText,
+                { content: element + '' },
+                key
+            );
+        }
+
+        // ReactElement
+        if (typeof element === 'object' && element !== null) {
+            switch (element.$$typeof) {
+                case REACT_ELEMENT_TYPE:
+                    if (before) {
+                        if (before.type === element.type) {
+                            // 可以复用
+                            existingChildren.delete(key);
+                            return useFiber(before, element.props);
+                        }
+                    }
+                    return createFiberFromElement(element);
+            }
+
+            // TODO 
+            if (Array.isArray(element) && __DEV__) {
+                console.warn('还未实现数组类型的 child');
+            }
+        }
+
+        return null;
+    }
+    function reconcileChildrenArray(
+        returnFiber: FiberNode,
+        currentFirstChild: FiberNode | null,
+        /**
+         * 虽然在我们这个项目中，这里是 ReactElement，但是实际 React 有很多其他类型，
+         * 所以这里用 any。
+         */
+        newChild: any[]
+    ): FiberNode {
+        let node: FiberNode | null = null;
+        /**
+         * 当下遍历到的最后一个可复用 fiber 的旧 index（也即在 current 中的位置）
+         */
+        let lastPlacedIndex: number = 0;
+        /**
+         * 随着遍历而构建中的新 fiber 链表的表尾
+         */
+        let lastNewFiber: FiberNode | null = null;
+        /**
+         * 随着遍历而构建中的新 fiber 链表的表尾的表头。协调完后，需要返回它
+         */
+        let firstNewFiber: FiberNode | null = null;
+        // 1. 将 current 保存在 map 中
+        const existingChildren: ExistingChildren = new Map();
+        let current = currentFirstChild;
+        while (current !== null) {
+            const keyToUse = current.key !== null
+                ? current.key // 有 key 用 key
+                : current.index; // 无 key 用 index 
+            existingChildren.set(keyToUse, current);
+            current = current.sibling;
+        }
+        // 2. 遍历 newChild 查看是否可复用
+        for (let i = 0; i< newChild.length; ++i) {
+            const el = newChild[i];
+            const newFiber = updateFromMap(
+                returnFiber,
+                existingChildren,
+                i,
+                el
+            );
+
+            if (newFiber === null) { // any -> false null 等不是 string、number 
+                // 或者 object 的情况
+                continue;
+            }
+
+            // 3. 标记移动还是删除
+            newFiber.index = i;
+            newFiber.return = returnFiber;
+
+            if (lastNewFiber === null) {
+                lastNewFiber = newFiber;
+                firstNewFiber = newFiber;
+            } else {
+                lastNewFiber.sibling = newFiber;
+                lastNewFiber = newFiber;
+            }
+
+            if (!shouldTrackEffects) continue;
+
+            const current = newFiber.alternate;
+            if (current !== null) {
+                const oldIndex = current.index;
+                if (oldIndex < lastPlacedIndex) {
+                    newFiber.flags |= Placement; // 移动
+                    continue;
+                } else {
+                    // 不移动
+                    lastPlacedIndex = oldIndex;
+                }
+            } else {
+                // mount
+                newFiber.flags |= Placement;
+            }
+        }
+        // 4. 将 map 中剩下的标记为删除
+        existingChildren.forEach(child => {
+            deleteChild(returnFiber, child);
+        });
+
+        return firstNewFiber as FiberNode;
+    }
     return function reconcileChildFibers(returnFiber: FiberNode, currentFiber: FiberNode | null, newChild?: ReactElement) {
         // 判断当前 fiber 的类型
         if (typeof newChild === "object" && newChild !== null) {
@@ -114,6 +249,14 @@ function ChildReconciler(shouldTrackEffects: boolean) {
                         console.warn('未实现的 reconciler 类型', newChild);
                     }
                     break;
+            }
+            // 多节点的情况
+            if (Array.isArray(newChild)) {
+                return reconcileChildrenArray(
+                    returnFiber,
+                    currentFiber,
+                    newChild
+                );
             }
         }
 
