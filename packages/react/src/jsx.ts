@@ -50,19 +50,13 @@ export const jsx = function (type: ElementTpe, config: any, ...maybeChildren: an
 }
 
 
-export const jsxDEV = function (type: ElementTpe, config: any) {
-    let key: Key = null;
+export const jsxDEV = function (type: ElementTpe, config: any, key: Key) {
+    console.log('jsxDEV', config, ...arguments);
     const props: Props = {};
     let ref: Ref = null;
 
     for (const prop in config) {
         const val = config[prop];
-        if (prop === 'key') {
-            if (val !== undefined) {
-                key = '' + val;
-            }
-            continue;
-        }
         if (prop === 'ref') {
             if (val !== undefined) {
                 ref = val;
@@ -74,6 +68,8 @@ export const jsxDEV = function (type: ElementTpe, config: any) {
         }
     }
 
+    console.log('key: ', key);
+    
     return createReactElement(type, key, ref, props);
 }
 

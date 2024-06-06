@@ -125,7 +125,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             return new FiberNode(
                 HostText,
                 { content: element + '' },
-                key
+                null
             );
         }
 
@@ -244,11 +244,6 @@ function ChildReconciler(shouldTrackEffects: boolean) {
                         currentFiber,
                         newChild
                     ));
-                default:
-                    if (__DEV__) {
-                        console.warn('未实现的 reconciler 类型', newChild);
-                    }
-                    break;
             }
             // 多节点的情况
             if (Array.isArray(newChild)) {

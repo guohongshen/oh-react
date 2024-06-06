@@ -1,4 +1,4 @@
-import { Container, appendChildToContainer, commitUpdate, removeChild } from "hostConfig";
+import { Container, Instance, appendChildToContainer, commitUpdate, insertBefore, removeChild } from "hostConfig";
 import { FiberNode, FiberRootNode } from "./fiber";
 import { ChildDeletion, MutationMask, NoFlags, Placement, Update } from "./fiberFlags";
 import { FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
@@ -57,15 +57,24 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode) {
 }
 
 function commitPlacement(finishedWork: FiberNode) {
+    console.info('执行 Placement 操作', finishedWork);
     if (__DEV__) {
-        console.warn('执行 Placement 操作', finishedWork);
+        // console.warn('执行 Placement 操作', finishedWork);
         // debugger;
     }
     // 找到 parent DOM
     const hostParent = getHostParent(finishedWork);
+
+    // host sibling
+    const hostSibling = getHostSibling(finishedWork);
+
     // finishedWork ~ DOM
     if (hostParent !== null) {
-        appendPlacementNodeIntoContainer(finishedWork, hostParent);
+        insertBeforeOrAppendPlacementNodeIntoContainer(
+            finishedWork,
+            hostParent,
+            hostSibling
+        );
     }
 }
 
@@ -167,6 +176,50 @@ function commitNestedComponent(
     }*/
 }
 
+/**
+ * 返回 fiber 的「后驱 Host 节点，后驱肯定就要求是兄弟了」，不稳定的除外。不稳定是指携
+ * 带 Placement flag。
+ * @param fiber 
+ */
+function getHostSibling(fiber: FiberNode): Instance | null {
+    let node = fiber;
+    function isStable(fiber: FiberNode) {
+        return (fiber.flags & Placement) === NoFlags;
+    }
+    findSibling: while (true) {
+        while (node.sibling === null) {
+            const parent = node.return;
+            if (parent === null ||
+                parent.tag === HostComponent || // QUESTION
+                parent.tag === HostRoot // HostRot 没有兄弟节点，所以不用找了
+            ) {
+                return null;
+            }
+            node = parent;
+        }
+        node.sibling.return = node.return;
+        node = node.sibling;
+        
+        while (node.tag !== HostText && node.tag !== HostComponent) {
+            // 向下遍历
+            if (!isStable(node)) {
+                continue findSibling;
+            }
+            if (node.child === null) {
+                continue findSibling;
+            } else {
+                node.child.return = node;
+                node = node.child;
+            }
+        }
+
+        // HostText or HostComponent
+        if (isStable(node)) {
+            return node.stateNode;
+        }
+    }
+}
+
 function getHostParent(fiber: FiberNode): Container | null {
     let parent = fiber.return;
 
@@ -188,19 +241,39 @@ function getHostParent(fiber: FiberNode): Container | null {
     return null;
 }
 
-function appendPlacementNodeIntoContainer(finishedWork: FiberNode, hostParent: Container) {
+function insertBeforeOrAppendPlacementNodeIntoContainer(
+    finishedWork: FiberNode,
+    hostParent: Container,
+    hostSibling?: Instance | null
+) {
     // fiber host
     if (finishedWork.tag === HostComponent || finishedWork.tag === HostText) {
-        appendChildToContainer(finishedWork.stateNode, hostParent);
+        if (hostSibling) {
+            insertBefore(
+                hostParent,
+                finishedWork.stateNode,
+                hostSibling
+            );
+        } else {
+            appendChildToContainer(finishedWork.stateNode, hostParent);
+        }
         return;
     }
     const child = finishedWork.child;
     if (child !== null) {
-        appendPlacementNodeIntoContainer(child, hostParent);
+        insertBeforeOrAppendPlacementNodeIntoContainer(
+            child,
+            hostParent,
+            hostSibling
+        );
         let sibling = child.sibling;
 
         while (sibling !== null) {
-            appendPlacementNodeIntoContainer(sibling, hostParent);
+            insertBeforeOrAppendPlacementNodeIntoContainer(
+                sibling,
+                hostParent,
+                hostSibling
+            );
             sibling = sibling.sibling;
         }
     }

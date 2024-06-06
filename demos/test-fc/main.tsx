@@ -3,18 +3,30 @@ import ReactDOM from 'react-dom/client';
 
 function App() {
   const [num, setNum] = useState(100);
-  (window as any).asd = setNum;
-  const res = num !== 3
-    ? <div>
-      <span key="000"></span>
-      <span key="001"></span>
-      <span key="002"></span>
-    </div>
-    : <div>
-    <span key="002"></span>
-    </div>;
-    (window as any).res = res;
-    return res;
+  if (!(window as any).setNum) {
+    (window as any).setNum = setNum;
+    (window as any).onClick = () => {
+      setNum(num => num + 1);
+    }
+  }
+
+
+  const arr = num % 2 === 0
+    ? [
+      <li key="1">1</li>,
+      <li key="2">2</li>,
+      <li key="3">3</li>
+    ] : [
+      <li key="3">3</li>,
+      <li key="2">2</li>,
+      <li key="1">1</li>
+    ];
+    console.log('arr: ', arr);
+    
+  return <ul onClick={(window as any).onClick}>
+      {arr}
+    </ul>
+
 }
 
 function Child(params) {
