@@ -57,7 +57,6 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode) {
 }
 
 function commitPlacement(finishedWork: FiberNode) {
-    console.info('执行 Placement 操作', finishedWork);
     if (__DEV__) {
         // console.warn('执行 Placement 操作', finishedWork);
         // debugger;
@@ -263,16 +262,14 @@ function insertBeforeOrAppendPlacementNodeIntoContainer(
     if (child !== null) {
         insertBeforeOrAppendPlacementNodeIntoContainer(
             child,
-            hostParent,
-            hostSibling
+            hostParent
         );
         let sibling = child.sibling;
 
         while (sibling !== null) {
             insertBeforeOrAppendPlacementNodeIntoContainer(
                 sibling,
-                hostParent,
-                hostSibling
+                hostParent
             );
             sibling = sibling.sibling;
         }

@@ -23,11 +23,50 @@ function App() {
     ];
     console.log('arr: ', arr);
     
-  return <ul onClick={(window as any).onClick}>
+  return <div>
+    <ul onClick={(window as any).onClick}>
       {arr}
     </ul>
+    <button id="button">点击我</button>
+  </div>
 
 }
+/*
+var btn = document.querySelector('button');
+btn.onclick = () => {
+  var ul = document.querySelector("ul");
+  const children = ul.childNodes;
+  var first = children[0];
+  var third = children[2];
+  var second = children[1];
+  ul.insertBefore(third, second);
+  ul.appendChild(first);
+}
+
+var btn = document.querySelector('button');
+btn.onclick = () => {
+  var ul = document.querySelector("ul");
+  const children = ul.childNodes;
+  var first = children[0];
+  var third = children[2];
+  var second = children[1];
+  ul.appendChild(first);
+}
+
+var btn = document.querySelector('button');
+btn.onclick = () => {
+  var li = document.createElement('li');
+  var ul = document.querySelector("ul");
+  ul.appendChild(li);
+}
+
+var btn = document.querySelector('button');
+btn.onclick = () => {
+  var li = document.createElement('li');
+  var ul = document.querySelector("ul");
+  ul.insetBefore(li, ul.childNodes[0]);
+}
+*/
 
 function Child(params) {
   return <span>Big-React</span>

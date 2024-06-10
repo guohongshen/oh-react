@@ -101,22 +101,17 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         }
         return fiber;
     }
-    function getKey(item: any): Key {
-        return item.key !== null
-            ? item.key
-            : item.index;
-    }
     function updateFromMap(
         returnFiber: FiberNode,
         existingChildren: ExistingChildren,
         index: number,
         element: any
     ): FiberNode | null {
-        const key = getKey(element);
+        const key = element.key !== null ? element.key : index;
         const before = existingChildren.get(key);
         if (typeof element === 'string' || typeof element === 'number') {
             // HostText
-            if (before !== undefined) {
+            if (before) {
                 if (before.tag === HostText) {
                     existingChildren.delete(key);
                     return useFiber(before, { content: element + '' });
@@ -198,7 +193,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
                 continue;
             }
 
-            // 3. 标记移动还是删除
+            // 3. 标记移动还是插入
             newFiber.index = i;
             newFiber.return = returnFiber;
 
@@ -269,7 +264,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         // 兜底：
         if (currentFiber !== null) {
             // 兜底 做删除
-            deleteChild(returnFiber, currentFiber);
+            deleteRemainingChildren(returnFiber, currentFiber);
         }
 
         if (__DEV__) {
