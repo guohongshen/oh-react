@@ -28,7 +28,7 @@ export class FiberNode {
     ref: any;
     constructor(tag: WorkTag, pendingProps: Props, key: Key) {
         this.tag = tag;
-        this.key = key;
+        this.key = key || null;
         this.stateNode = null;
         this.type = null;
 

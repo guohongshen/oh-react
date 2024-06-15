@@ -86,45 +86,69 @@ function commitPlacement(finishedWork: FiberNode) {
  * @param childToDelete 
  */
 function commitDeletion(childToDelete: FiberNode) {
-    let rootHostNode: FiberNode | null = null;
+    console.log('childToDelete: ', childToDelete);
+    
+    let rootChildrenToDelete: FiberNode[] = [];
+    function recordHostChildrenToDelete(
+        childrenToDelete: FiberNode[],
+        unmountFiber: FiberNode
+    ) {
+        // 1. 找到第一个 root host 节点
+        let lastOne = childrenToDelete[childrenToDelete.length - 1];
+        if (!lastOne) {
+            childrenToDelete.push(unmountFiber);
+        } else {
+            // 2. 每找到一个节点，判断是不是 1 找到的那个节点的兄弟节点
+            let node = lastOne.sibling;
+            while (node !== null) {
+                if (unmountFiber === node) {
+                    childrenToDelete.push(unmountFiber);
+                }
+                node = node.sibling;
+            }
+        }
+    }
     // 递归子树
     commitNestedComponent(childToDelete, unmountFiber => {
         switch (unmountFiber.tag) {
             case HostComponent:
-                if (rootHostNode === null) {
-                    rootHostNode = unmountFiber; // QUESTION
-                }
+                recordHostChildrenToDelete(rootChildrenToDelete, unmountFiber);
                 // TODO 解绑 ref
                 return;
             case HostText:
-                if (rootHostNode === null) {
-                    rootHostNode = unmountFiber; // QUESTION
-                }
+                recordHostChildrenToDelete(rootChildrenToDelete, unmountFiber);
                 return;
             case FunctionComponent:
                 // TODO useEffect、unmount、解绑 ref
                 return;
             default:
                 if (__DEV__) {
-                    console.warn('未处理的 unmount 类型');
+                    console.warn('未处理的 unmount 类型', unmountFiber);
                 }
                 break;
         }
     });
 
     // 移除 rootHostNode 的 DOM
-    if (rootHostNode !== null) {
+    if (rootChildrenToDelete.length !== 0) {
         const hostParent = getHostParent(childToDelete); // child text
-        (window as any).getHostParent = getHostParent;
         // 单一节点，只考虑有一个子树的情况
         if (hostParent !== null) {
-            removeChild((rootHostNode as FiberNode).stateNode, hostParent);
+            rootChildrenToDelete.forEach(childToDelete => {
+                removeChild((childToDelete).stateNode, hostParent);
+            });
         }
     }
     childToDelete.return = null;
     childToDelete.child = null;
 }
 
+/**
+ * 深度优先遍历，前序调用 onCommitUnmount()
+ * @param root 
+ * @param onCommitUnmount 
+ * @returns 
+ */
 function commitNestedComponent(
     root: FiberNode,
     onCommitUnmount: (fiber: FiberNode) => void

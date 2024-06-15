@@ -19,6 +19,7 @@ export function createContainer(container: Container) {
         null
     );
     const root = new FiberRootNode(container, hostRootFiber);
+    (window as any).root = root;
     hostRootFiber.updateQueue = createUpdateQueue();
     return root;
 }

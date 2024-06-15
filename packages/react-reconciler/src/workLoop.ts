@@ -20,7 +20,9 @@ function prepareRefreshStack(root: FiberRootNode) {
  */
 export function scheduleUpdateOnFiber(fiber: FiberNode) {
     // TODO: 调度功能
+    
     const root = markUpdateFromFiberToRoot(fiber);
+    
     renderRoot(root);
 }
 

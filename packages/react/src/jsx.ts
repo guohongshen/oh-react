@@ -1,4 +1,4 @@
-import { REACT_ELEMENT_TYPE } from "shared/ReactSymbols";
+import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from "shared/ReactSymbols";
 import { Type, Key, Ref, Props, ReactElement, ElementTpe } from "shared/ReactTypes";
 
 const createReactElement = function (type: Type, key: Key, ref: Ref, props: Props): ReactElement {
@@ -50,8 +50,7 @@ export const jsx = function (type: ElementTpe, config: any, ...maybeChildren: an
 }
 
 
-export const jsxDEV = function (type: ElementTpe, config: any, key: Key) {
-    console.log('jsxDEV', config, ...arguments);
+export const jsxDEV = function (type: ElementTpe, config: any, _key: Key) {
     const props: Props = {};
     let ref: Ref = null;
 
@@ -68,7 +67,8 @@ export const jsxDEV = function (type: ElementTpe, config: any, key: Key) {
         }
     }
 
-    console.log('key: ', key);
+    const key = _key === undefined ? null : _key; // key 如果没有值就默认给 null
+    // 不然 reconcile 的时候有些代码就会拿 null 和 undefined 比较，得出 key 不同
     
     return createReactElement(type, key, ref, props);
 }
@@ -78,3 +78,5 @@ export function isValidElement(object: any) {
         object !== null &&
         object.$$typeof === REACT_ELEMENT_TYPE
 }
+
+export const Fragment = REACT_FRAGMENT_TYPE;

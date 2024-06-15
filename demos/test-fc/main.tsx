@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { Fragment, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
 function App() {
-  const [num, setNum] = useState(100);
+  const [num, setNum] = useState(0);
   if (!(window as any).setNum) {
     (window as any).setNum = setNum;
     (window as any).onClick = () => {
-      setNum(num => num + 1);
+      // debugger;
+      setNum(num => {
+        console.log(num, num + 1);
+        return num + 1;
+      });
     }
   }
 
@@ -21,14 +25,14 @@ function App() {
       <li key="2">2</li>,
       <li key="1">1</li>
     ];
-    console.log('arr: ', arr);
-    
-  return <div>
-    <ul onClick={(window as any).onClick}>
-      {arr}
-    </ul>
-    <button id="button">点击我</button>
-  </div>
+    console.log(num, arr);
+
+    const res = <ul>
+    {arr}
+  </ul>;
+  console.log('res: ', res);
+  
+  return res; 
 
 }
 /*
@@ -64,12 +68,22 @@ var btn = document.querySelector('button');
 btn.onclick = () => {
   var li = document.createElement('li');
   var ul = document.querySelector("ul");
-  ul.insetBefore(li, ul.childNodes[0]);
+  ul.insertBefore(li, ul.childNodes[0]);
 }
 */
 
-function Child(params) {
-  return <span>Big-React</span>
+function ChildSum() {
+  return 
+}
+
+function Child1(params) {
+  return <span>Child1</span>
+}
+function Child2(params) {
+  return <span>Child2</span>
+}
+function Child3(params) {
+  return <span>Child3</span>
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

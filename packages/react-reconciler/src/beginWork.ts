@@ -1,7 +1,7 @@
 import { ReactElement } from "shared/ReactTypes";
 import { FiberNode } from "./fiber";
 import { UpdateQueue, processUpdateQueue } from "./updateQueue";
-import { FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
+import { Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
 import { mountChildFibers, reconcileChildFibers } from "./childFibers";
 import { renderWithHooks } from "./fiberHooks";
 
@@ -17,6 +17,8 @@ export function beginWork(wip: FiberNode) {
             return null; // 叶子节点
         case FunctionComponent:
             return updateFunctionComponent(wip);
+        case Fragment:
+            return updateFragment(wip);
         default:
             if (__DEV__) {
                 console.warn('beginWork 未实现的类型');
@@ -52,15 +54,25 @@ function updateFunctionComponent(wip: FiberNode) {
     return wip.child;
 }
 
+function updateFragment(wip: FiberNode) {
+    // 注意：带有 key 的 Fragment，其 props 就是 children；
+    // 但是如果没有 key，那就不会创建 Fragment fiber
+    const nextChildren = wip.pendingProps;
+
+    reconcileChildren(wip, nextChildren);
+    return wip.child;
+}
 
 /**
  * 将 wip.alternate 与 children 进行比较。
  * @param wip 
  * @param children 
  */
-function reconcileChildren(wip: FiberNode, children?: ReactElement) {
+function reconcileChildren(
+    wip: FiberNode,
+    children?: any // ReactElement | any[]
+) {
     const current = wip.alternate;
-
     if (current !== null) {
         // update
         wip.child = reconcileChildFibers(wip, current?.child, children);
