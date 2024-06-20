@@ -18,3 +18,7 @@ export function mergeLanes(...lanes: Lane[]) {
 export function requestUpdateLane() {
     return SyncLane;
 }
+
+export function getHighestPriorityLane(lanes: Lanes) {
+    return lanes & -lanes;
+}

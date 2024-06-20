@@ -1,9 +1,11 @@
+import { scheduleMicroTask } from "hostConfig";
 import { beginWork } from "./beginWork";
 import { commitMutationEffects } from "./commitWork";
 import { completeWork } from "./completeWork";
 import { FiberNode, FiberRootNode, createWorkInProgress } from "./fiber";
 import { MutationMask, NoFlags } from "./fiberFlags";
-import { Lane, mergeLanes } from "./fiberLanes";
+import { Lane, NoLane, SyncLane, getHighestPriorityLane, mergeLanes } from "./fiberLanes";
+import { flushSyncCallbacks, scheduleSyncCallback } from "./syncTaskQueue";
 import { HostRoot } from "./workTags";
 
 let workInProgress: FiberNode | null;
@@ -13,6 +15,32 @@ function prepareRefreshStack(root: FiberRootNode) {
         root.current,
         {}
     );
+}
+
+/**
+ * 调度阶段的入口
+ * @param root 
+ * @returns 
+ */
+export function ensureRootIsScheduled(root: FiberRootNode) {
+    const lane = getHighestPriorityLane(root.pendingLanes);
+    if (lane === NoLane) {
+        return;
+    }
+    if (lane === SyncLane) {
+        // 同步优先级，用微任务调度
+        if (__DEV__) {
+            console.log('在微任务中调度，优先级： ', lane);
+        }
+        scheduleSyncCallback(performSyncWorkOnRoot.bind(
+            null,
+            root,
+            lane
+        ));
+        scheduleMicroTask(flushSyncCallbacks);
+    } else {
+        // 其他优先级，用宏任务调用
+    }
 }
 
 /**
@@ -32,7 +60,7 @@ export function scheduleUpdateOnFiber(fiber: FiberNode, lane: Lane) {
     }
     markRootUpdate(root, lane);
     
-    renderRoot(root);
+    ensureRootIsScheduled(root);
 }
 
 // QUESTION: fiberRootNode 不应该只有一个吗，那存在一个全局变量里不就好了，为什么还要
@@ -119,7 +147,7 @@ function workLoop() {
     }
 }
 
-function renderRoot(root: FiberRootNode ) {
+function performSyncWorkOnRoot(root: FiberRootNode, lane: Lane) {
     // 初始化
     prepareRefreshStack(root);
 
