@@ -1,8 +1,10 @@
 import { Action } from "shared/ReactTypes";
 import { Dispatch } from "react/src/currentDispatcher";
+import { Lane } from "./fiberLanes";
 
 export interface Update<State> {
     action: Action<State>;
+    lane: Lane;
     next: Update<any> | null; // QUESTION 新的 state 和旧的不是一个类型
 }
 
@@ -16,9 +18,13 @@ export interface UpdateQueue<State = any> {
     dispatch: Dispatch<State> | null;
 }
 
-export function createUpdate<State>(action: Action<State>): Update<State> {
+export function createUpdate<State>(
+    action: Action<State>,
+    lane: Lane
+): Update<State> {
     return {
         action,
+        lane,
         next: null
     };
 }
