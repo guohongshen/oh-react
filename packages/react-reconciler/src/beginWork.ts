@@ -4,19 +4,20 @@ import { UpdateQueue, processUpdateQueue } from "./updateQueue";
 import { Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
 import { mountChildFibers, reconcileChildFibers } from "./childFibers";
 import { renderWithHooks } from "./fiberHooks";
+import { Lane } from "./fiberLanes";
 
 // 递归中的递阶段
-export function beginWork(wip: FiberNode) {
+export function beginWork(wip: FiberNode, renderLane: Lane) {
     // 比较，返回子 fiberNode
     switch (wip.tag) {
         case HostRoot:
-            return updateHostRoot(wip);
+            return updateHostRoot(wip, renderLane);
         case HostComponent:
             return updateHostComponent(wip);
         case HostText:
             return null; // 叶子节点
         case FunctionComponent:
-            return updateFunctionComponent(wip);
+            return updateFunctionComponent(wip, renderLane);
         case Fragment:
             return updateFragment(wip);
         default:
@@ -27,12 +28,14 @@ export function beginWork(wip: FiberNode) {
     }
 }
 
-function updateHostRoot(wip: FiberNode) {
+function updateHostRoot(wip: FiberNode, renderLane: Lane) {
     const baseState = wip.memoizedState;
     const updateQueue = wip.updateQueue as UpdateQueue<ReactElement>;
     const pending = updateQueue.shared.pending;
     updateQueue.shared.pending = null;
-    const { memoizedState } = processUpdateQueue(baseState, pending);
+    const {
+        memoizedState
+    } = processUpdateQueue(baseState, pending, renderLane);
     wip.memoizedState = memoizedState;
 
     const nextChildren = wip.memoizedState;
@@ -47,9 +50,9 @@ function updateHostComponent(wip: FiberNode) {
     return wip.child;
 }
 
-function updateFunctionComponent(wip: FiberNode) {
+function updateFunctionComponent(wip: FiberNode, renderLane: Lane) {
     const nextProps = wip.pendingProps;
-    const nextChildren = renderWithHooks(wip);
+    const nextChildren = renderWithHooks(wip, renderLane);
     reconcileChildren(wip, nextChildren);
     return wip.child;
 }

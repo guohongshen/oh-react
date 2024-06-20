@@ -18,6 +18,7 @@ export function flushSyncCallbacks() {
             syncQueue.forEach(callback => {
                 callback();
             });
+            syncQueue = null; // 他没加，我这边加了
         } catch (e) {
             if (__DEV__) {
                 console.error('flushSyncCallbacks 报错');

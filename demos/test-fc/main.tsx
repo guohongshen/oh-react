@@ -25,15 +25,21 @@ function App() {
       <li key="2">2</li>,
       <li key="1">1</li>
     ];
-    console.log(num, arr);
+  // console.log(num, arr);
 
-    const res = <ul>
-    {arr}
-  </ul>;
-  console.log('res: ', res);
-  
+  const res = <div>
+    <ul>
+      {num}
+    </ul>
+    <button onClick={() => {
+      debugger;
+      setNum(num => num + 1);
+      setNum(num => num + 1);
+      setNum(num => num + 1);
+    }}>点击我</button>
+  </div>;
+
   return res; 
-
 }
 /*
 var btn = document.querySelector('button');

@@ -1,6 +1,6 @@
 import { Action } from "shared/ReactTypes";
 import { Dispatch } from "react/src/currentDispatcher";
-import { Lane } from "./fiberLanes";
+import { Lane, NoLane } from "./fiberLanes";
 
 export interface Update<State> {
     action: Action<State>;
@@ -60,7 +60,8 @@ export function enqueueUpdate<State>(
  */
 export function processUpdateQueue<State>(
     baseState: State,
-    pendingUpdate: Update<State> | null
+    pendingUpdate: Update<State> | null,
+    renderLane: Lane
 ): {
     memoizedState: State
 } {
@@ -68,15 +69,29 @@ export function processUpdateQueue<State>(
         memoizedState: baseState
     };
     if (pendingUpdate !== null) {
-        const action = pendingUpdate.action;
-        if (action instanceof Function) {
-            // baseState 2 update x => 3x -> memoizedState 6
-            result.memoizedState = action(baseState);
-        } else {
-            // baseState 1 update 2 -> memoizedState 2
-            result.memoizedState = action;
-        }
+        let first = pendingUpdate.next;
+        let pending = pendingUpdate.next as Update<any>;
+        let lane = NoLane;
+        do {
+            lane = pending.lane;
+            if (lane === renderLane) {
+                const action = pending.action;
+                if (action instanceof Function) {
+                    // baseState 2 update x => 3x -> memoizedState 6
+                    baseState = action(baseState);
+                } else {
+                    // baseState 1 update 2 -> memoizedState 2
+                    baseState = action;
+                }
+            } else {
+                if (__DEV__) {
+                    console.error('目前不应该走到这里，因为目前只有 SyncLane');
+                }
+            }
+            pending = pending.next as Update<any>;
+        } while (pending !== first)
     }
 
+    result.memoizedState = baseState;
     return result;
 }

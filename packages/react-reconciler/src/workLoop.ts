@@ -4,17 +4,22 @@ import { commitMutationEffects } from "./commitWork";
 import { completeWork } from "./completeWork";
 import { FiberNode, FiberRootNode, createWorkInProgress } from "./fiber";
 import { MutationMask, NoFlags } from "./fiberFlags";
-import { Lane, NoLane, SyncLane, getHighestPriorityLane, mergeLanes } from "./fiberLanes";
+import { Lane, NoLane, SyncLane, getHighestPriorityLane, markFiberFinished, mergeLanes } from "./fiberLanes";
 import { flushSyncCallbacks, scheduleSyncCallback } from "./syncTaskQueue";
 import { HostRoot } from "./workTags";
 
 let workInProgress: FiberNode | null;
+/**
+ * 本次更新的优先级
+ */
+let wipRootRenderLane: Lane = NoLane;
 
-function prepareRefreshStack(root: FiberRootNode) {
+function prepareRefreshStack(root: FiberRootNode, lane: Lane) {
     workInProgress = createWorkInProgress(
         root.current,
         {}
     );
+    wipRootRenderLane = lane;
 }
 
 /**
@@ -107,9 +112,17 @@ function commitRoot(root: FiberRootNode) {
     if (__DEV__) {
         console.warn('commit 阶段开始', finishedWork);
     }
+    const lane = root.finishedLane;
 
     // 重置
     root.finishedWork = null;
+    root.finishedLane = NoLane;
+
+    markFiberFinished(root, lane);
+
+    if (lane === NoLane && __DEV__) {
+        console.error('commit 阶段 finishedLane 不应该是 NoLane');
+    }
 
     // 判断是否存在三个子阶段需要执行的操作
     
@@ -131,7 +144,7 @@ function commitRoot(root: FiberRootNode) {
 }
 
 function performUnitOfWork(fiber: FiberNode) {
-    const next = beginWork(fiber);
+    const next = beginWork(fiber, wipRootRenderLane);
     fiber.memoizedProps = fiber.pendingProps; // 其实可以放在 beginWork 里面？
 
     if (next === null) {
@@ -148,8 +161,21 @@ function workLoop() {
 }
 
 function performSyncWorkOnRoot(root: FiberRootNode, lane: Lane) {
+    const nextLane = getHighestPriorityLane(root.pendingLanes);
+    
+    if (nextLane !== SyncLane) {
+        // 其他比 SyncLane 低的优先级
+        // NoLane
+        ensureRootIsScheduled(root);
+        return;
+    }
+
+    if (__DEV__) {
+        console.log('render 阶段开始');
+    }
+
     // 初始化
-    prepareRefreshStack(root);
+    prepareRefreshStack(root, lane);
 
     // 构建递归流程
     // 记住：协调过程整体是递归的，函数执行并不是递归的，因为你那样的话栈太深了，所以实
@@ -168,6 +194,8 @@ function performSyncWorkOnRoot(root: FiberRootNode, lane: Lane) {
 
     const finishedWork = root.current.alternate;
     root.finishedWork = finishedWork;
+    root.finishedLane = lane;
+    wipRootRenderLane = NoLane;
 
     // wip fiberNode 树中的 flags
     commitRoot(root);
