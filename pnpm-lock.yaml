@@ -118,6 +118,8 @@ importers:
         specifier: 'workspace: *'
         version: link:../shared
 
+  packages/scheduler: {}
+
   packages/shared: {}
 
 packages:
