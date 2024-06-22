@@ -7,6 +7,11 @@ export const useState: Dispatcher['useState'] = (initialState) => {
     return dispatcher.useState(initialState);
 };
 
+export const useEffect: Dispatcher['useEffect'] = (create, deps) => {
+    const dispatcher = resolveDispatcher();
+    return dispatcher.useEffect(create, deps);
+};
+
 /** 数据共享层 */
 export const Sharing = {
     currentDispatcher

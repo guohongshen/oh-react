@@ -5,6 +5,8 @@ import { UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpd
 import { Action } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
+import { Flags, PassiveEffect } from "./fiberFlags";
+import { HookHasEffect, Passive } from "./hookEffectTag";
 
 let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
@@ -17,6 +19,28 @@ export interface Hook {
     memoizedState: any;
     updateQueue: unknown;
     next: Hook | null;
+}
+
+/** 创建和销毁函数 */
+type EffectCallback = () => void;
+/** 依赖数组 */
+type EffectDeps = any[] | null;
+/**
+ * effect 类的 hook 用于存储 effect 相关信息。
+ */
+export interface Effect {
+    tag: Flags;
+    create: EffectCallback | void;
+    destroy: EffectCallback | void;
+    deps: EffectDeps;
+    /**
+     * 为了方便使用，和其他 effect 连接成链表。render 时重置 effect 链表。
+     */
+    next: Effect | null;
+}
+
+export interface FCUpdateQueue<State = any> extends UpdateQueue<State>{
+    lastEffect: Effect | null;
 }
 
 export function renderWithHooks(wip: FiberNode, lane: Lane) {
@@ -46,7 +70,7 @@ export function renderWithHooks(wip: FiberNode, lane: Lane) {
 
 const HooksDispatcherOnMount: Dispatcher = {
     useState: mountState,
-    useEffect: null
+    useEffect: mountEffect
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
@@ -98,6 +122,26 @@ function updateState<State>(
     return [hook.memoizedState, (queue.dispatch as Dispatch<State>)];
 }
 
+function mountEffect(
+    create: EffectCallback | void,
+    deps: EffectDeps
+) {
+    const hook = mountWorkInProgressHook();
+    const nextDeps = deps === undefined ? null : deps;
+    (currentlyRenderingFiber as FiberNode).flags |= PassiveEffect;
+
+    hook.memoizedState = pushEffect(
+        Passive | HookHasEffect,
+        create,
+        undefined,
+        nextDeps
+    );
+}
+
+/**
+ * mount 时，创建 hook 并加入到 hook 链表，并返回。
+ * @returns 
+ */
 function mountWorkInProgressHook(): Hook {
     const hook: Hook = {
         memoizedState: null,
@@ -176,3 +220,50 @@ function dispatchSetState<State>(
     enqueueUpdate(updateQueue, update);
     scheduleUpdateOnFiber(fiber, lane);
 }
+
+/**
+ * 将 effect 加入到 effect 列表中
+ * @param hookFlags 
+ * @param create 
+ * @param destroy 
+ * @param deps 
+ */
+function pushEffect(
+    hookFlags: Flags,
+    create: EffectCallback | void,
+    destroy: EffectCallback | void,
+    deps: EffectDeps
+): Effect {
+    const effect: Effect = {
+        tag: hookFlags,
+        create,
+        destroy,
+        deps,
+        next: null
+    };
+    const fiber = currentlyRenderingFiber as FiberNode;
+    function createFCUpdateQueue<State>() {
+        const updateQueue = createUpdateQueue<State>() as FCUpdateQueue<State>;
+        updateQueue.lastEffect = null;
+        return updateQueue;
+    }
+    let updateQueue = fiber.updateQueue as FCUpdateQueue;
+    if (updateQueue === null) {
+        updateQueue = createFCUpdateQueue();
+        fiber.updateQueue = updateQueue;
+        effect.next = effect;
+        updateQueue.lastEffect = effect;
+    } else {
+       const lastEffect = updateQueue.lastEffect;
+       if (lastEffect === null) {
+        effect.next = effect;
+        updateQueue.lastEffect = effect;
+       } else {
+        effect.next = lastEffect.next;
+        lastEffect.next = effect;
+        updateQueue.lastEffect = effect;
+       }
+    }
+    return effect;
+}
+
