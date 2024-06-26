@@ -1,95 +1,34 @@
-import React, { Fragment, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 
 function App() {
-  const [num, setNum] = useState(0);
-  if (!(window as any).setNum) {
-    (window as any).setNum = setNum;
-    (window as any).onClick = () => {
-      // debugger;
-      setNum(num => {
-        console.log(num, num + 1);
-        return num + 1;
-      });
-    }
-  }
+  const [num, updateNum] = useState(0);
+  useEffect(() => {
+    console.log('App mount');
+  }, []);
 
+  useEffect(() => {
+    console.log('num change create', num);
+    return () => {
+      console.log('num change destroy', num);
+    };
+  }, [num]);
 
-  const arr = num % 2 === 0
-    ? [
-      <li key="1">1</li>,
-      <li key="2">2</li>,
-      <li key="3">3</li>
-    ] : [
-      <li key="3">3</li>,
-      <li key="2">2</li>,
-      <li key="1">1</li>
-    ];
-  // console.log(num, arr);
-
-  const res = <div>
-    <ul>
-      {num}
-    </ul>
-    <button onClick={() => {
-      debugger;
-      setNum(num => num + 1);
-      setNum(num => num + 1);
-      setNum(num => num + 1);
-    }}>点击我</button>
-  </div>;
-
-  return res; 
-}
-/*
-var btn = document.querySelector('button');
-btn.onclick = () => {
-  var ul = document.querySelector("ul");
-  const children = ul.childNodes;
-  var first = children[0];
-  var third = children[2];
-  var second = children[1];
-  ul.insertBefore(third, second);
-  ul.appendChild(first);
+  return (
+    <div onClick={() => updateNum(num + 1)}>
+      {num === 0 ? <Child /> : 'noop'}
+    </div>
+  );
 }
 
-var btn = document.querySelector('button');
-btn.onclick = () => {
-  var ul = document.querySelector("ul");
-  const children = ul.childNodes;
-  var first = children[0];
-  var third = children[2];
-  var second = children[1];
-  ul.appendChild(first);
-}
+function Child() {
+  const [num, updateNum] = useState('child');
+  useEffect(() => {
+    console.log('Child mount');
+    return () => console.log('Child unmount');
+  }, []);
 
-var btn = document.querySelector('button');
-btn.onclick = () => {
-  var li = document.createElement('li');
-  var ul = document.querySelector("ul");
-  ul.appendChild(li);
-}
-
-var btn = document.querySelector('button');
-btn.onclick = () => {
-  var li = document.createElement('li');
-  var ul = document.querySelector("ul");
-  ul.insertBefore(li, ul.childNodes[0]);
-}
-*/
-
-function ChildSum() {
-  return 
-}
-
-function Child1(params) {
-  return <span>Child1</span>
-}
-function Child2(params) {
-  return <span>Child2</span>
-}
-function Child3(params) {
-  return <span>Child3</span>
+  return 'i am child';
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

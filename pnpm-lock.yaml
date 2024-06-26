@@ -114,6 +114,9 @@ importers:
 
   packages/react-reconciler:
     dependencies:
+      scheduler:
+        specifier: 'workspace: *'
+        version: link:../scheduler
       shared:
         specifier: 'workspace: *'
         version: link:../shared

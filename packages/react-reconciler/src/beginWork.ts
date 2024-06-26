@@ -51,7 +51,6 @@ function updateHostComponent(wip: FiberNode) {
 }
 
 function updateFunctionComponent(wip: FiberNode, renderLane: Lane) {
-    const nextProps = wip.pendingProps;
     const nextChildren = renderWithHooks(wip, renderLane);
     reconcileChildren(wip, nextChildren);
     return wip.child;

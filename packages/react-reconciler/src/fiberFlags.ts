@@ -13,5 +13,7 @@ export type Flags = number;
 
 export const MutationMask = Placement | Update | ChildDeletion;
 
+/**
+ * 如果依赖没有变化，但是组件标记删除，那么也要触发 useEffect destroy 回调。
+ */
 export const PassiveMask = PassiveEffect | ChildDeletion;
-// 如果依赖没有变化，但是组件标记删除，那么也要触发 useEffect destroy 回调

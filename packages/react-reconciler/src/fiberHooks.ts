@@ -6,7 +6,7 @@ import { Action } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
 import { Flags, PassiveEffect } from "./fiberFlags";
-import { HookHasEffect, Passive } from "./hookEffectTag";
+import { HookEffectTag, HookHasEffect, Passive } from "./hookEffectTag";
 
 let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
@@ -29,7 +29,7 @@ type EffectDeps = any[] | null;
  * effect 类的 hook 用于存储 effect 相关信息。
  */
 export interface Effect {
-    tag: Flags;
+    tag: HookEffectTag;
     create: EffectCallback | void;
     destroy: EffectCallback | void;
     deps: EffectDeps;
@@ -47,6 +47,8 @@ export function renderWithHooks(wip: FiberNode, lane: Lane) {
     currentlyRenderingFiber = wip;
     // 重置 hooks 链表
     wip.memoizedState = null;
+    // 重置 effect 链表
+    wip.updateQueue = null;
 
     renderLane = lane;
 
@@ -64,6 +66,7 @@ export function renderWithHooks(wip: FiberNode, lane: Lane) {
     const children = Component(props);
 
     currentlyRenderingFiber = null;
+    workInProgressHook = null;
     renderLane = NoLane;
     return children;
 }
@@ -75,7 +78,7 @@ const HooksDispatcherOnMount: Dispatcher = {
 
 const HooksDispatcherOnUpdate: Dispatcher = {
     useState: updateState,
-    useEffect: null
+    useEffect: updateEffect
 };
 
 function mountState<State>(
@@ -124,7 +127,7 @@ function updateState<State>(
 
 function mountEffect(
     create: EffectCallback | void,
-    deps: EffectDeps
+    deps: EffectDeps | void
 ) {
     const hook = mountWorkInProgressHook();
     const nextDeps = deps === undefined ? null : deps;
@@ -136,6 +139,42 @@ function mountEffect(
         undefined,
         nextDeps
     );
+}
+
+function updateEffect(
+    create: EffectCallback | void,
+    deps: EffectDeps | void
+) {
+    const hook = updateWorkInProgressHook();
+    const nextDeps = deps === undefined ? null : deps;
+    let destroy: EffectCallback | void;
+
+    if (currentHook !== null) {
+        const prevEffect = currentHook.memoizedState as Effect;
+        destroy = prevEffect.destroy;
+
+        if (nextDeps !== null) {
+            // 浅比较依赖
+            const prevDeps = prevEffect.deps;
+            if (areHookInputsEqual(nextDeps, prevDeps)) {
+                hook.memoizedState = pushEffect(
+                    Passive,
+                    create,
+                    destroy,
+                    nextDeps
+                );
+                return;
+            }
+        }
+        // 浅比较 不相等
+        (currentlyRenderingFiber as FiberNode).flags |= PassiveEffect;
+        hook.memoizedState = pushEffect(
+            Passive | HookHasEffect,
+            create,
+            destroy,
+            nextDeps
+        );
+    }
 }
 
 /**
@@ -222,7 +261,8 @@ function dispatchSetState<State>(
 }
 
 /**
- * 将 effect 加入到 effect 列表中
+ * 将 effect 加入到 fiber.updateQueue.lastEffect 为尾的 effect 列表中（updateQueue
+ * 是 FCUpdateQueue，相比于 UpdateQueue 多了一个 lastEffect 属性）。最后返回该 effect。
  * @param hookFlags 
  * @param create 
  * @param destroy 
@@ -254,16 +294,28 @@ function pushEffect(
         effect.next = effect;
         updateQueue.lastEffect = effect;
     } else {
-       const lastEffect = updateQueue.lastEffect;
-       if (lastEffect === null) {
-        effect.next = effect;
-        updateQueue.lastEffect = effect;
-       } else {
-        effect.next = lastEffect.next;
-        lastEffect.next = effect;
-        updateQueue.lastEffect = effect;
-       }
+        const lastEffect = updateQueue.lastEffect;
+        if (lastEffect === null) {
+            effect.next = effect;
+            updateQueue.lastEffect = effect;
+        } else {
+            effect.next = lastEffect.next;
+            lastEffect.next = effect;
+            updateQueue.lastEffect = effect;
+        }
     }
     return effect;
 }
 
+function areHookInputsEqual(nextDeps: EffectDeps, prevDeps: EffectDeps) {
+    if (prevDeps === null || nextDeps === null) {
+        return false; // 如果没有传递 deps 会进到这里来
+    }
+    for (let i = 0; i < prevDeps.length && i < nextDeps.length; ++i) {
+        if (Object.is(prevDeps[i], nextDeps[i])) {
+            continue;
+        }
+        return false;
+    }
+    return true;
+}

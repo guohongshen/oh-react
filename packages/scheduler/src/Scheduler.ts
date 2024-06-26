@@ -1,6 +1,5 @@
-import { Priorities } from "./Priority";
-import Task, { Executor } from "./Task";
 import { Priority } from "./Priority";
+import Task, { Executor, isExecutor } from "./Task";
 import Heap from "./Heap";
 import { getCurrentTime, localClearTimeout, localSetTimeout } from "./utils";
 
@@ -31,7 +30,7 @@ export default class Scheduler {
 	/**
 	 * 设置下一时间片的工作。
 	 */
-	private prepareToWorkInNextSlice: () => void;
+	private prepareToWorkInNextSlice: any; /* () => void */
 	/**
 	 * 下一时间片是否需要工作（一个标志位）。
 	 */
@@ -60,7 +59,7 @@ export default class Scheduler {
 	/**
 	 * 刷新 currentTime 以保证实时。
 	 */
-	private refreshCurrentTime() {
+	public refreshCurrentTime() {
 		this.currentTime = getCurrentTime();
 		return this.currentTime;
 	}
@@ -71,7 +70,7 @@ export default class Scheduler {
 		const { sleepQueue, readyQueue } = this;
 		let task = sleepQueue.peek();
 		while (task) {
-			if (!task.executor) {
+			if (!isExecutor(task.executor)) {
 				sleepQueue.pop();
 			} else if (task.startTime <= this.currentTime) { // 该叫醒了
 				sleepQueue.pop();
@@ -111,28 +110,31 @@ export default class Scheduler {
 		const { readyQueue, sleepQueue } = this;
 		if (newTask.startTime > currentTime) {
 			sleepQueue.push(newTask);
-			if (readyQueue.peek() === null && newTask === sleepQueue.peek()) {
+			if (readyQueue.isEmpty() && newTask === sleepQueue.peek()) {
 				if (this.ifTimeoutCalled) {
 					localClearTimeout(this.timeoutId);
-					this.ifTimeoutCalled = false;
-				} else {
-					this.ifTimeoutCalled = true;
 				}
-				this.timeoutId = localSetTimeout(() => { }, newTask.startTime - currentTime);
+				this.ifTimeoutCalled = true;
+				this.timeoutId = localSetTimeout(
+					() => {
+						this.work();
+					},
+					newTask.startTime - currentTime
+				);
 			}
 		} else {
 			readyQueue.push(newTask);
 			if (!this.ifNextSliceWillWork) {
 				this.prepareToWorkInNextSlice();
-			} // 如果下一阶段将会工作，那么就不需要再重复设置了
+			}
+			// 如果 ifNextSliceWillWork 为 true，那么就不需要再重复调用 prepareToWorkInNextSlice 了
 		}
 		return newTask;
 	}
 	/**
-	* 处理需要处理的 tasks。
+	* 处理需要处理的 tasks。注意：该函数有可能是 readyTasks 触发的，也可能是 sleepTask 触发的。
 	*/
 	private work = () => {
-		// 注意：work 有可能是 readyTasks 触发的，也可能是 sleepTask 触发的。
 		this.sliceStart = this.refreshCurrentTime(); //  新的时间片开始
 		this.ifNextSliceWillWork = false; // 新的时间片已经开始，重置为 false
 		if (this.ifTimeoutCalled) { // 也可能是 setTimeout 触发的
@@ -146,7 +148,12 @@ export default class Scheduler {
 			this.prepareToWorkInNextSlice();
 		} else if (sleepQueue.peek()) {
 			this.ifTimeoutCalled = true;
-			this.timeoutId = localSetTimeout(() => { }, (sleepQueue.peek() as Task).startTime - this.refreshCurrentTime());
+			this.timeoutId = localSetTimeout(
+				() => {
+					this.work();
+				},
+				(sleepQueue.peek() as Task).startTime - this.refreshCurrentTime()
+			);
 		} else {
 			return 'scheduler is waiting a new Task';
 		}
@@ -155,24 +162,23 @@ export default class Scheduler {
 	 * 依次拿出任务来执行
 	 */
 	private loop() {
-		let currentTask = this.readyQueue.peek();
 		const { readyQueue } = this;
+		let currentTask = readyQueue.peek();
 		while (currentTask) {
 			if (this.ifSliceEnd()) {
 				return;
 			}
 			let executor = currentTask.executor;
-			if (typeof executor === 'function') {
-				while (!!executor && this.ifSliceEnd()) {
+			if (isExecutor(executor)) {
+				while (isExecutor(executor) && !this.ifSliceEnd()) {
 					executor = executor();
 				}
-				if (!!executor || this.ifSliceEnd()) {
-					currentTask.executor = executor;
-					this.wake();
-					return;
-				} else {
+				if (!isExecutor(executor)) { // 该 executor 执行完了，该下一个了
 					this.wake();
 					readyQueue.pop();
+				} else { // 时间片走完了
+					currentTask.executor = executor;
+					return;
 				}
 			} else {
 				readyQueue.pop();

@@ -293,9 +293,6 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             }
             switch (newChild.$$typeof) {
                 case REACT_ELEMENT_TYPE:
-                    if (newChild.key === '234') {
-                        debugger;
-                    }
                     return placeSingleChild(reconcileSingleElement(
                         returnFiber,
                         currentFiber,

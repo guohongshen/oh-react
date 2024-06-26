@@ -10,7 +10,7 @@ export default class Heap<T = Node> {
 	/**
 	 * 权重的属性
 	 */
-	private weightReference = 'weight';
+	private weightReference: PropertyKey = 'weight';
 	/**
 	 * 元素数组
 	 */
@@ -18,8 +18,11 @@ export default class Heap<T = Node> {
 	/**
 	 * @param weightKey 权重属性 
 	 */
-	constructor(weightKey) {
+	constructor(weightKey: PropertyKey) {
 		this.weightReference = weightKey || this.weightReference;
+	}
+	public isEmpty(): boolean {
+		return this.peek() === null;
 	}
 	/**
 	* 添加元素
@@ -91,7 +94,8 @@ export default class Heap<T = Node> {
 	* @returns 
 	*/
 	private compare(x: number, y: number): number {
-		return this.nodes[x][this.weightReference] - this.nodes[y][this.weightReference];
+		return (this.nodes[x] as any)[this.weightReference]
+			- (this.nodes[y]  as any)[this.weightReference]; // TODO 类型有点问题，后面改
 	}
 	/**
 	* 交换两个元素在数组中的位置
