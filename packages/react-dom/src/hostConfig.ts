@@ -2,8 +2,11 @@ import { FiberNode } from "react-reconciler/src/fiber";
 import { HostText } from "react-reconciler/src/workTags";
 import { injectProps, DOMElement } from "./SyntheticEvent";
 
+/** HostRoot */
 export type Container = Element;
+/** HostComponent */
 export type Instance = Element;
+/** HostText */
 export type textInstance = Text;
 
 export function createInstance (type: string, props?: any): Instance {

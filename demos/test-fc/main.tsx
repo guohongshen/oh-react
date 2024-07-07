@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
+import ReactNoopRenderer from 'react-noop-renderer';
 
 function App() {
   const [num, updateNum] = useState(0);
@@ -31,6 +31,18 @@ function Child() {
   return 'i am child';
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App/>,
-)
+function App2() {
+  return (
+    <>
+    <Child2/>
+    <div>hello world<span>我</span></div>
+    </>
+  )
+}
+
+function Child2() {
+  return 'Child';
+}
+
+// @ts-ignore
+ReactNoopRenderer.createRoot().render(<App2/>)
