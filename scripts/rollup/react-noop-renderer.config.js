@@ -3,28 +3,36 @@ import { getPackageJSON, resolvePkgPath, getBaseRollupPlugins } from "./utils.ts
 import generatePackageJson from 'rollup-plugin-generate-package-json';
 import alias from '@rollup/plugin-alias';
 
-const { name, module, peerDependencies } = getPackageJSON('react-dom');
+const { name, module, peerDependencies } = getPackageJSON('react-noop-renderer');
 const pkgPath = resolvePkgPath(name);
 const pkgDistPath = resolvePkgPath(name, true);
 export default [
-    // react-dom
+    // react-noop-renderer
     {
         input: `${pkgPath}/${module}`,
         output: [
             {
                 file: `${pkgDistPath}/index.js`,
-                name: 'ReactDOM',
-                format: 'umd'
-            },
-            {
-                file: `${pkgDistPath}/client.js`,
-                name: 'client',
+                name: 'ReactNoopRenderer',
                 format: 'umd'
             },
         ],
-        external: [...Object.keys(peerDependencies), 'scheduler'], // react-dom 和 react 公用一个数据共享层
+        external: [...Object.keys(peerDependencies), 'scheduler'], // react-noop-renderer 和 react 公用一个数据共享层
         plugins: [
-            ...getBaseRollupPlugins(),
+            ...getBaseRollupPlugins({
+                typescript: {
+                    exclude: [
+                        './packages/react-dom/**/*' // QUESTION 了解下 tsconfig.json include 字段
+                    ],
+                    tsconfigOverride: {
+                        compilerOptions: {
+                            paths: {
+                                "hostConfig": [`./${name}/src/hostConfig.ts`]
+                            }
+                        }
+                    }
+                }
+            }),
             // webpack resolve alias
             alias({
                 entries: {
@@ -45,25 +53,5 @@ export default [
                 })
             })
         ]
-    },
-    // react-test-utils
-    {
-        input: `${pkgPath}/test-utils.ts`,
-        output: [
-            {
-                file: `${pkgDistPath}/test-utils.js`,
-                name: 'testUtils',
-                format: 'umd'
-            },
-            {
-                file: `${pkgDistPath}/client.js`,
-                name: 'client.js',
-                format: 'umd'
-            },
-        ],
-        external: ['react-dom', 'react'], // 防止将 react react-dom 打到 testUtils 里面
-        plugins: [
-            ...getBaseRollupPlugins(),
-        ]
-    },
+    }
 ];
