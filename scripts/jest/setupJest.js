@@ -1,0 +1,4 @@
+expect.extend({
+    ...require('./reactTestMatchers')
+});
+
