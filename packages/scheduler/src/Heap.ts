@@ -124,8 +124,10 @@ export default class Heap<T = Node> {
 		}
 		let smallest = indexes[0];
 		indexes.forEach(index => {
-			if (this.compare(index, smallest) < 0) {
-				smallest = index;
+			if (index < this.nodes.length) {
+				if (this.compare(index, smallest) < 0) {
+					smallest = index;
+				}
 			}
 		});
 		return smallest;

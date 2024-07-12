@@ -7,7 +7,7 @@ import { Priority, Timeouts } from "./Priority";
 /**
  * 时间分片所依赖的基础之一是任务分片
  */
-export type Executor = () => any; /* Executor */
+export type Executor = (reachDeadline?: boolean) => any; /* Executor */
 
 export function isExecutor(executor: any) {
 	return typeof executor === 'function';

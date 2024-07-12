@@ -24,11 +24,30 @@
           height: 100px;
           background-color: aqua;
         }
+        button {
+          margin-left: 20px;
+        }
+
+        .priority-1 {
+          background-color: purple;
+        }
+        .priority-2 {
+          background-color: red;
+        }
+        .priority-3 {
+          background-color: orange;
+        }
+        .priority-4 {
+          background-color: yellow;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="./main.tsx"></script>
+    <div id="root">
+      <div id="op"></div>
+      <div id="content"></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
   </body>
 </html>

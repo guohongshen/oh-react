@@ -171,7 +171,8 @@ export default class Scheduler {
 			let executor = currentTask.executor;
 			if (isExecutor(executor)) {
 				while (isExecutor(executor) && !this.ifSliceEnd()) {
-					executor = executor();
+					const currentTime = this.refreshCurrentTime();
+					executor = executor(currentTime >= currentTask.deadline);
 				}
 				if (!isExecutor(executor)) { // 该 executor 执行完了，该下一个了
 					this.wake();
