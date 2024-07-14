@@ -64,6 +64,27 @@ export default class Scheduler {
 		return this.currentTime;
 	}
 	/**
+	 * 当前执行中的任务的优先级
+	 */
+	private currentPriority: Priority = Priority.NoPriority;
+	public getCurrentPriority(): Priority {
+		return this.currentPriority;
+	}
+	/**
+	 * QUESTION 上一次执行时的优先级
+	 */
+	private previousPriority: Priority = Priority.NoPriority;
+	public runWithPriority(priority: Priority, func: any) {
+		this.previousPriority = this.currentPriority;
+		this.currentPriority = priority;
+
+		try {
+			return typeof func === 'function' ? func() : undefined;
+		} finally {
+			this.currentPriority = this.previousPriority;
+		}
+	}
+	/**
 	 * 根据 currentTime 叫醒已经可以被执行的 sleeping tasks。
 	 */
 	private wake() {

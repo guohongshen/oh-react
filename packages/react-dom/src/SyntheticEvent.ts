@@ -1,4 +1,5 @@
 import { Container } from "hostConfig";
+import scheduler, { Priority } from "scheduler";
 import { Props } from "shared/ReactTypes";
 
 
@@ -91,8 +92,10 @@ function triggerEventFlow(
 ) {
     for (let i = 0; i< paths.length; ++i) {
         const callback = paths[i];
-        callback.call(null, se);
-
+        scheduler.runWithPriority(
+            eventTypeToSchedulerPriority(se.type),
+            callback.call(null, se)
+        );
         if (se.__stopPropagation) {
             break;
         }
@@ -139,4 +142,17 @@ function collectPaths(
         targetElement = targetElement.parentNode as DOMElement;
     }
     return paths;
+}
+
+function eventTypeToSchedulerPriority(eventType: string) {
+    switch (eventType) {
+        case 'click':
+        case 'keydown':
+        case 'keyup':
+            return Priority.ImmediatePriority;
+        case 'scroll':
+            return Priority.UserBlockingPriority;
+        default:
+            return Priority.NormalPriority;
+    }
 }
