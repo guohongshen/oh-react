@@ -209,4 +209,8 @@ export default class Scheduler {
 		}
 		return;
 	}
+	public cancelTask(task: Task) {
+		// @ts-ignore
+		task.executor = null; // 最简单且巧妙地取消任务的方式
+	}
 }

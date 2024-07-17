@@ -52,7 +52,7 @@ export function markFiberFinished(
     root.pendingLanes &= ~lane;
 }
 
-function lanesToSchedulerPriority(lanes: Lanes) {
+export function lanesToSchedulerPriority(lanes: Lanes) {
     const lane = getHighestPriorityLane(lanes);
 
     switch (lane) {
@@ -67,7 +67,7 @@ function lanesToSchedulerPriority(lanes: Lanes) {
     }
 }
 
-function schedulerPriorityToLane(priority: Priority) {
+export function schedulerPriorityToLane(priority: Priority) {
     if (priority === Priority.ImmediatePriority) {
         return SyncLane;
     }

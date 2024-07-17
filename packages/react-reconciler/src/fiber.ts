@@ -71,6 +71,15 @@ export class FiberRootNode {
     pendingLanes: Lanes;
     finishedLane: Lane;
 
+    /**
+     * scheduler.addTask() 的返回值，也即 newTask 实例，这么讲它的名字应该是 task。
+     */
+    callbackNode: any;
+    /**
+     * 当前被 scheduler 执行的更新任务的优先级(task 对应的 priority 的 lane 形式)。
+     */
+    callbackPriority: Lane;
+
     constructor (container: Container, hostRootFiber: FiberNode) {
         /**
          * FiberRootNode
@@ -93,6 +102,9 @@ export class FiberRootNode {
             unmount: [],
             update: []
         }
+
+        this.callbackNode = null;
+        this.callbackPriority = NoLane;
     }
 }
 

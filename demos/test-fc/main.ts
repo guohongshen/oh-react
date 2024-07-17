@@ -60,6 +60,12 @@ function doWork(work: WorkUnit, didTimeout: boolean) {
                 spanClassName: `priority-${num}`,
                 spanText: nextSpanTextMap[num]++
             };
+            function mockBusy(len: number) {
+                while (len) {
+                    --len;
+                }
+            }
+            mockBusy(1000000000);
             scheduler.addTask(
                 num,
                 doWork.bind(null, workUnit)
