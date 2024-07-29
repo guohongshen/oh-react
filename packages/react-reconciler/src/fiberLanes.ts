@@ -36,7 +36,7 @@ export function mergeLanes(...lanes: Lane[]) {
 
 export function requestUpdateLane() {
     // 从上下文中获取 scheduler 优先级
-    const currentPriority = scheduler.getCurrentPriority();
+    const currentPriority = scheduler.getCurrentPriority(); // 3
     const lane = schedulerPriorityToLane(currentPriority);
     return lane;
 }
@@ -78,4 +78,8 @@ export function schedulerPriorityToLane(priority: Priority) {
         return DefaultLane;
     }
     return NoLane;
+}
+
+export function isSubsetOfLanes(subset: Lanes, set: Lanes) {
+    return (set & subset) === subset;
 }

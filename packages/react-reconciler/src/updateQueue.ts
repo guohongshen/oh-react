@@ -1,6 +1,6 @@
 import { Action } from "shared/ReactTypes";
 import { Dispatch } from "react/src/currentDispatcher";
-import { Lane, NoLane } from "./fiberLanes";
+import { Lane, NoLane, isSubsetOfLanes } from "./fiberLanes";
 
 export interface Update<State> {
     action: Action<State>;
@@ -55,43 +55,82 @@ export function enqueueUpdate<State>(
 /**
  * 消费一个 update，注意是一个。
  * @param baseState 
- * @param pendingUpdate 
+ * @param updateQueue baseQueue 和 pendingQueue 的连接。
  * @returns 
  */
 export function processUpdateQueue<State>(
     baseState: State,
-    pendingUpdate: Update<State> | null,
+    updateQueue: Update<State> | null,
     renderLane: Lane
 ): {
-    memoizedState: State
+    baseState: State,
+    memoizedState: State,
+    baseQueue: Update<State> | null
 } {
     const result: ReturnType<typeof processUpdateQueue<State>> = {
-        memoizedState: baseState
+        baseState,
+        memoizedState: baseState,
+        baseQueue: null
     };
-    if (pendingUpdate !== null) {
-        let first = pendingUpdate.next;
-        let pending = pendingUpdate.next as Update<any>;
+
+    if (updateQueue !== null) {
+        let first = updateQueue.next;
+        let pending = updateQueue.next as Update<any>;
         let lane = NoLane;
+        let newBaseState = baseState;
+        let newBaseQueueFirst: Update<State> | null = null;
+        let newBaseQueueLast: Update<State> | null = null;
+        let newMemoizedState = baseState; // 也即 newState
+
         do {
             lane = pending.lane;
-            if (lane === renderLane) {
+            if (!isSubsetOfLanes(lane, renderLane)) {
+                // 优先级不够 跳过
+                const clone = createUpdate( // clone 是偷懒了，不想破坏原链表的结构
+                    pending.action,
+                    pending.lane
+                );
+                if (newBaseQueueLast === null) {
+                    newBaseQueueFirst = clone;
+                    newBaseQueueLast = clone;
+                    newBaseState = newMemoizedState;
+                } else {
+                    newBaseQueueLast.next = clone;
+                    newBaseQueueLast = clone;
+                }
+            } else {
+                // 优先级足够
+
+                if (newBaseQueueLast) {
+                    const clone = createUpdate(pending.action, NoLane);
+                    newBaseQueueLast.next = clone;
+                    newBaseQueueLast = clone;
+                }
+
+                // 参与计算
                 const action = pending.action;
                 if (action instanceof Function) {
                     // baseState 2 update x => 3x -> memoizedState 6
-                    baseState = action(baseState);
+                    newMemoizedState = action(newMemoizedState);
                 } else {
                     // baseState 1 update 2 -> memoizedState 2
-                    baseState = action;
+                    newMemoizedState = action;
                 }
-            } else {
-                if (__DEV__) {
-                    console.error('目前不应该走到这里，因为目前只有 SyncLane');
-                }
+
             }
             pending = pending.next as Update<any>;
         } while (pending !== first)
+
+        if (newBaseQueueLast === null) {
+            // 本次计算过程中，没有 update 被跳过
+            newBaseState = newMemoizedState;
+        } else {
+            newBaseQueueLast.next = newBaseQueueFirst; // 放外面也可以
+        }
+        result.memoizedState = newMemoizedState;
+        result.baseState = newBaseState;
+        result.baseQueue = newBaseQueueLast;
     }
 
-    result.memoizedState = baseState;
     return result;
 }

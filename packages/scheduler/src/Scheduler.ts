@@ -66,7 +66,7 @@ export default class Scheduler {
 	/**
 	 * 当前执行中的任务的优先级
 	 */
-	private currentPriority: Priority = Priority.NoPriority;
+	private currentPriority: Priority = Priority.NormalPriority;
 	public getCurrentPriority(): Priority {
 		return this.currentPriority;
 	}

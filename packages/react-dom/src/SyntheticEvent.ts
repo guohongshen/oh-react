@@ -93,8 +93,10 @@ function triggerEventFlow(
     for (let i = 0; i< paths.length; ++i) {
         const callback = paths[i];
         scheduler.runWithPriority(
-            eventTypeToSchedulerPriority(se.type),
-            callback.call(null, se)
+            eventTypeToSchedulerPriority(se.type), // 1
+            () => {
+                callback.call(null, se);
+            }
         );
         if (se.__stopPropagation) {
             break;

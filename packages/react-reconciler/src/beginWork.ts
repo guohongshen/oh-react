@@ -33,10 +33,8 @@ function updateHostRoot(wip: FiberNode, renderLane: Lane) {
     const updateQueue = wip.updateQueue as UpdateQueue<ReactElement>;
     const pending = updateQueue.shared.pending;
     updateQueue.shared.pending = null;
-    const {
-        memoizedState
-    } = processUpdateQueue(baseState, pending, renderLane);
-    wip.memoizedState = memoizedState;
+    const res = processUpdateQueue(baseState, pending, renderLane);
+    wip.memoizedState = res.memoizedState;
 
     const nextChildren = wip.memoizedState;
     reconcileChildren(wip, nextChildren);

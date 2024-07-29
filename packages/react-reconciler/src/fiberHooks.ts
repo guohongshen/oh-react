@@ -1,7 +1,7 @@
 import internals from "shared/internals";
 import { FiberNode } from "./fiber";
 import { Dispatch, Dispatcher } from "react/src/currentDispatcher";
-import { UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
+import { Update, UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
 import { Action } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
@@ -17,6 +17,8 @@ const { currentDispatcher } = internals;
 
 export interface Hook {
     memoizedState: any;
+    baseState: any;
+    baseQueue: Update<any> | null;
     updateQueue: unknown;
     next: Hook | null;
 }
@@ -115,11 +117,33 @@ function updateState<State>(
     const queue = hook.updateQueue as UpdateQueue<State>;
     const pending = queue.shared.pending;
 
+    const baseState = hook.baseState;
+    let baseQueue = (currentHook as Hook).baseQueue;
+
     if (pending !== null) {
+        if (baseQueue !== null) {
+            const baseFirst = baseQueue.next;
+            const pendingFirst = pending.next;
+
+            baseQueue.next = pendingFirst;
+            pending.next = baseFirst;
+        }
+        baseQueue = pending;
+        // 保存在 current 中
+        (currentHook as Hook).baseQueue = pending; // 这里的逻辑是：
+        // 如果本次更新被高优先级更新打断（也即本次更新的结果还没来得及进入 commit）
+        // 高优任务在执行时，就能从 currentHook.baseQueue 中拿到上一次的更新队列，
+        // 不然下一行就把 pending 清空了。
+        queue.shared.pending = null;
+
         const {
-            memoizedState
-        } = processUpdateQueue(hook.memoizedState, pending, renderLane);
-        hook.memoizedState = memoizedState;
+            memoizedState: newMemoizedState,
+            baseQueue: newBaseQueue,
+            baseState: newBaseState
+        } = processUpdateQueue(baseState, baseQueue, renderLane);
+        hook.memoizedState = newMemoizedState;
+        hook.baseState = newBaseState;
+        hook.baseQueue = newBaseQueue;
     }
 
     return [hook.memoizedState, (queue.dispatch as Dispatch<State>)];
@@ -185,7 +209,9 @@ function mountWorkInProgressHook(): Hook {
     const hook: Hook = {
         memoizedState: null,
         updateQueue: null,
-        next: null
+        next: null,
+        baseQueue: null,
+        baseState: null
     };
     if (workInProgressHook === null) {
         if (currentlyRenderingFiber === null) {
@@ -229,7 +255,9 @@ function updateWorkInProgressHook(): Hook {
      const newHook: Hook = {
         memoizedState: currentHook.memoizedState,
         updateQueue: currentHook.updateQueue,
-        next: null
+        next: null,
+        baseQueue: currentHook.baseQueue,
+        baseState: currentHook.baseState
      };
 
      if (workInProgressHook === null) {
