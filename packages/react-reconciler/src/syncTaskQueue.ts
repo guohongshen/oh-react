@@ -3,7 +3,12 @@ type Callback = (...args: any) => void;
 let syncQueue: Callback[] | null = null;
 let isFlushingSyncQueue: boolean = false;
 
-export function scheduleSyncCallback(callback: Callback) {
+/**
+ * 原名 scheduleSyncCallback，更名后 addCallbackToSyncQueue。添加 callback 到
+ * syncQueue 中（但不执行）。
+ * @param callback 
+ */
+export function addCallbackToSyncQueue(callback: Callback) {
     if (syncQueue === null) {
         syncQueue = [callback];
     } else {

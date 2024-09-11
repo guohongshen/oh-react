@@ -6,7 +6,7 @@ import { completeWork } from "./completeWork";
 import { FiberNode, FiberRootNode, PendingPassiveEffects, createWorkInProgress } from "./fiber";
 import { MutationMask, NoFlags, PassiveEffect, PassiveMask } from "./fiberFlags";
 import { Lane, NoLane, SyncLane, getHighestPriorityLane, lanesToSchedulerPriority, markFiberFinished, mergeLanes } from "./fiberLanes";
-import { flushSyncCallbacks, scheduleSyncCallback } from "./syncTaskQueue";
+import { flushSyncCallbacks, addCallbackToSyncQueue } from "./syncTaskQueue";
 import { HostRoot } from "./workTags";
 import { HookHasEffect, Passive } from "./hookEffectTag";
 
@@ -72,12 +72,12 @@ export function ensureRootIsScheduled(root: FiberRootNode) {
         if (__DEV__) {
             console.log('在微任务中调度，优先级： ', lane);
         }
-        scheduleSyncCallback(performSyncWorkOnRoot.bind(
-            null,
-            root
-        ));
+        addCallbackToSyncQueue(performSyncWorkOnRoot.bind(null, root));
         scheduleMicroTask(flushSyncCallbacks);
     } else {
+        if (__DEV__) {
+            console.log('在宏任务中调度，优先级： ', lane);
+        }
         // 其他优先级，用宏任务调用
         const priority = lanesToSchedulerPriority(lane);
         newCallbackNode = scheduler.addTask(
@@ -253,6 +253,8 @@ function renderRoot(
             break;
         } catch (err) {
             if (__DEV__) {
+                console.log('err: ', err);
+                
                 console.log('workLoop 发生错误');
             }
             workInProgress = null;

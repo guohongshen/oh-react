@@ -1,42 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useTransition } from 'react';
 import ReactDOM from 'react-dom';
+import TabButton from './TabButton';
+import AboutTab from './AboutTab';
+import PostsTab from './PostsTab';
+import ContactTab from './ContactTab';
 
-function App() {
-  const [num, updateNum] = useState(100);
+let a = 0;
+
+export default function TabContainer() {
+  console.log('>>>>>>>>>>>>>>>>>>');
   
-
-  return (
-    <ul onClick={() => updateNum(50)}>
-      {new Array(num).fill(0).map((_, i) => {
-        return <Child key={i}>{i}</Child>
-      })}
-    </ul>
-  );
-}
-
-function Child({ children }) {
-  const now = performance.now();
-  while (performance.now() - now < 4) {
+  if (!a) {
+    a = 1;
+  } else {
+    // debugger;
   }
-  return <li>{children}</li>
-}
+  const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState('about');
+console.log('isPending: ', isPending);
+console.log('tab: ', tab);
 
-function App2() {
+
+  function selectTab(nextTab) {
+    startTransition(() => {
+      console.log('nextTab: ', nextTab);
+      
+      setTab(nextTab);
+    });
+  }
+
   return (
     <>
-    <Child2/>
-    <div>hello world<span>我</span></div>
+      <TabButton
+        isActive={tab === 'about'}
+        onClick={() => selectTab('about')}
+      >
+        About
+      </TabButton>
+      <TabButton
+        isActive={tab === 'posts'}
+        onClick={() => selectTab('posts')}
+      >
+        Posts (slow)
+      </TabButton>
+      <TabButton
+        isActive={tab === 'contact'}
+        onClick={() => selectTab('contact')}
+      >
+        Contact
+      </TabButton>
+      <hr />
+      {tab === 'about' && <AboutTab />}
+      {tab === 'posts' && <PostsTab />}
+      {tab === 'contact' && <ContactTab />}
     </>
-  )
+  );
 }
-
-function Child2() {
-  return 'Child';
-}
-
-let root = document.getElementById('root');
-
 // @ts-ignore
 ReactDOM.createRoot(
   document.getElementById('root')
-).render(<App/>)
+).render(<TabContainer/>)

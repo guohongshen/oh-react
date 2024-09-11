@@ -5,6 +5,7 @@ import { UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate } from "./u
 import { ReactElement } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 import { SyncLane, requestUpdateLane } from "./fiberLanes";
+import scheduler, { Priority } from "scheduler";
 
 
 /**
@@ -34,15 +35,20 @@ export function updateContainer(
     element: ReactElement | null,
     root: FiberRootNode
 ) {
-    const hostRootFiber = root.current;
-    const lane = requestUpdateLane();
-    const update = createUpdate<ReactElement | null>(element, lane);
-    enqueueUpdate(
-        hostRootFiber.updateQueue as UpdateQueue<ReactElement | null>,
-        update
-    );
-
-    scheduleUpdateOnFiber(hostRootFiber, lane);
+    scheduler.runWithPriority(
+        Priority.ImmediatePriority,
+        () => {
+            const hostRootFiber = root.current;
+            const lane = requestUpdateLane(); // 这里就能获取到同步优先级
+            const update = createUpdate<ReactElement | null>(element, lane);
+            enqueueUpdate(
+                hostRootFiber.updateQueue as UpdateQueue<ReactElement | null>,
+                update
+            );
+        
+            scheduleUpdateOnFiber(hostRootFiber, lane);
+        }
+    )
     return element;
 }
 

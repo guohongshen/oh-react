@@ -9,6 +9,8 @@ export const ChildDeletion = 0b0000100;
 */
 export const PassiveEffect = 0b0001000;
 
+export const Ref = 0b0010000;
+
 export type Flags = number;
 
 export const MutationMask = Placement | Update | ChildDeletion;

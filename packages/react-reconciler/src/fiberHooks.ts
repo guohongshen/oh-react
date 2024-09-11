@@ -7,6 +7,7 @@ import { scheduleUpdateOnFiber } from "./workLoop";
 import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
 import { Flags, PassiveEffect } from "./fiberFlags";
 import { HookEffectTag, HookHasEffect, Passive } from "./hookEffectTag";
+import currentBatchConfig from "react/src/currentBatchConfig";
 
 let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
@@ -69,18 +70,21 @@ export function renderWithHooks(wip: FiberNode, lane: Lane) {
 
     currentlyRenderingFiber = null;
     workInProgressHook = null;
+    currentHook = null;
     renderLane = NoLane;
     return children;
 }
 
 const HooksDispatcherOnMount: Dispatcher = {
     useState: mountState,
-    useEffect: mountEffect
+    useEffect: mountEffect,
+    useTransition: mountTransition
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
     useState: updateState,
-    useEffect: updateEffect
+    useEffect: updateEffect,
+    useTransition: updateTransition
 };
 
 function mountState<State>(
@@ -94,6 +98,9 @@ function mountState<State>(
     } else {
         memoizedState = initialState;
     }
+    hook.memoizedState = memoizedState;
+    hook.baseState = memoizedState;
+
     const queue = createUpdateQueue<State>();
     hook.updateQueue = queue;
 
@@ -108,9 +115,7 @@ function mountState<State>(
     return [memoizedState, queue.dispatch];
 }
 
-function updateState<State>(
-    initialState: (() => State) | State
-): [State, Dispatch<State>] {
+function updateState<State>(): [State, Dispatch<State>] {
     const hook = updateWorkInProgressHook();
 
     // 计算新 state 的逻辑
@@ -135,7 +140,9 @@ function updateState<State>(
         // 高优任务在执行时，就能从 currentHook.baseQueue 中拿到上一次的更新队列，
         // 不然下一行就把 pending 清空了。
         queue.shared.pending = null;
+    }
 
+    if (baseQueue !== null) {
         const {
             memoizedState: newMemoizedState,
             baseQueue: newBaseQueue,
@@ -199,6 +206,34 @@ function updateEffect(
             nextDeps
         );
     }
+}
+
+function mountTransition(): [boolean, (callback: () => void) => void] {
+    const [isTransitioning, setIsTransitioning] = mountState(false);
+    const hook = mountWorkInProgressHook();
+    function startTransition(
+        setIsPending: Dispatch<boolean>,
+        callback: () => void
+    ) {
+        setIsPending(true); // 此处是同步更新
+
+        const preTransition = currentBatchConfig.transition;
+        currentBatchConfig.transition = 1; // 标记当前为 transition 更新阶段，调用 requestUpdateLane 返回 TransitionLane
+
+        callback(); // 执行回调，触发更新
+        setIsPending(false); // 回调执行完后，将 isPending 置为 false。注意此 update 的 lane 仍是 TransitionLane
+
+        currentBatchConfig.transition = preTransition; // 任务完成，恢复进入 transition 之前的值
+    };
+    hook.memoizedState = startTransition.bind(null, setIsTransitioning);
+    return [isTransitioning, hook.memoizedState];
+}
+
+function updateTransition(): [boolean, (callback: () => void) => void] {
+    const [isTransitioning] = updateState<boolean>();
+    const hook = updateWorkInProgressHook();
+    const starTransition = hook.memoizedState;
+    return [isTransitioning, starTransition];
 }
 
 /**
