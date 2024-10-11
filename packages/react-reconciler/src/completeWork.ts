@@ -1,11 +1,15 @@
 import { Container, Instance, appendInitialChild, createInstance, createTextInstance } from "hostConfig";
 import { FiberNode } from "./fiber";
 import { Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
-import { NoFlags, Update } from "./fiberFlags";
+import { NoFlags, Ref, Update } from "./fiberFlags";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
 export function markUpdate(fiber: FiberNode) {
     fiber.flags |= Update;
+}
+
+export function markRef(fiber: FiberNode) {
+    fiber.flags |= Ref;
 }
 
 export function completeWork(wip: FiberNode) {
@@ -17,21 +21,29 @@ export function completeWork(wip: FiberNode) {
     switch (wip.tag) {
         case HostComponent:
             if (current !== null && wip.stateNode) {
-                // update
+                // TODO 这里应该按照下面两点分别对比，如果发生了变化再给打上 Update。但时间不够，所以简单粗暴直接给打上 Update
                 // 1. props 是否变化 { onCLick: xx } { onCLick: xxx }
                 // wip.updateQueue = [k, v, k, v, ...]
                 // 2. 变 Update flag
                 // className style 等
                 markUpdate(wip);
-                // injectProps(wip.stateNode, newProps);
+
+                // 标记 Ref
+                if (current.ref !== wip.ref) {
+                    markRef(wip);
+                }
             } else {
                 // 1. 构建 DOM
                 const instance = createInstance(wip.type, newProps);
                 // 2. 将 DOM 插入到 DOM 树中
-                appendAllChildren(instance, wip);
+                appendAllRealSubtreeRootDOMNodes(instance, wip);
                 wip.stateNode = instance;
+                // 标记 Ref
+                if (wip.ref !== null) {
+                    markRef(wip);
+                }
             }
-            bubbleProperties(wip);
+            updateSubtreeFlags(wip);
             return null;
         case HostText:
             if (current !== null && wip.stateNode) {
@@ -46,16 +58,16 @@ export function completeWork(wip: FiberNode) {
                 const instance = createTextInstance(newProps.content);
                 wip.stateNode = instance;
             }
-            bubbleProperties(wip);
+            updateSubtreeFlags(wip);
             return null;
         case HostRoot:
-            bubbleProperties(wip);
+            updateSubtreeFlags(wip);
             return null;
         case FunctionComponent:
-            bubbleProperties(wip);
+            updateSubtreeFlags(wip);
             return null;
         case Fragment:
-            bubbleProperties(wip);
+            updateSubtreeFlags(wip);
             return null;
         default:
             if (__DEV__) {
@@ -70,11 +82,12 @@ export function completeWork(wip: FiberNode) {
  * DOM 节点依次添加到 wip.stateNode.children 中来。
  * 注：1. 真实子树：树的根节点是 HostComponent 或者 HostText；2. 直接真实子树，在从
  * 该子树的根节点到 wip 的祖先链上不再有其他的真实节点。
+ * 原名：appendAllChildren
  * @param parent 
  * @param wip 
  * @returns 
  */
-function appendAllChildren(parent: Container | Instance, wip: FiberNode) {
+function appendAllRealSubtreeRootDOMNodes(parent: Container | Instance, wip: FiberNode) {
     let node = wip.child;
 
     while (node !== null) {
@@ -106,10 +119,10 @@ function appendAllChildren(parent: Container | Instance, wip: FiberNode) {
 /**
  * 将 wip.subtreeFlags 设置为所有子节点的 subtreeFlags 以及 flags 的合并，也即所有后
  * 代节点的 flags 的合并。通俗理解为：flags 冒泡，因为程序操作上是对子节点进行冒泡，所
- * 以每次执行 completeWork 时都要调用一次冒泡。
+ * 以每次执行 completeWork 时都要调用一次冒泡。原名：bubbleProperties
  * @param wip 
  */
-function bubbleProperties(wip: FiberNode) {
+function updateSubtreeFlags(wip: FiberNode) {
     let subtreeFlags = NoFlags;
     let child = wip.child;
 

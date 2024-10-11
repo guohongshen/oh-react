@@ -1,10 +1,13 @@
 import React from "react";
-import { useTransition } from 'react';
+import { useEffect } from 'react';
 
 export default function TabButton({ children, isActive, onClick }) {
-  if (isActive) {
-    return <b>{children}</b>
-  }
+  useEffect(() => {
+    console.log(`TabButton ${children} mounted`);
+  }, []);
+  useEffect(() => {
+    console.log('isActive changed, new value: ', isActive);
+  }, [isActive]);
   return (
     <button onClick={() => {
       onClick();

@@ -7,25 +7,28 @@ import { ChildDeletion, Placement } from "./fiberFlags";
 type ExistingChildren = Map<Key, FiberNode>;
 
 function ChildReconciler(shouldTrackEffects: boolean) {
-    function deleteChild (returnFiber: FiberNode, childToDelete: FiberNode) {
+    function deleteChild (returnFiber: FiberNode, childFiber: FiberNode) {
         if (!shouldTrackEffects) {
             return;
         }
         const deletions = returnFiber.deletions;
         if (deletions === null) {
-            returnFiber.deletions = [childToDelete];
+            returnFiber.deletions = [childFiber];
             returnFiber.flags |= ChildDeletion;
         } else {
-            deletions.push(childToDelete);
+            deletions.push(childFiber);
             // deletions 不为空说明 flags 中已经有 ChildDeletion 了，不必要再加了
         }
     }
+    /*
+    * 删除 firstChildToDelete 及其之后的所有孩子
+    */
     function deleteRemainingChildren(
         returnFiber: FiberNode,
-        currentFirstChild: FiberNode | null
+        firstChildToDelete: FiberNode | null
     ) {
         if (!shouldTrackEffects) return;
-        let childToDelete = currentFirstChild;
+        let childToDelete = firstChildToDelete;
         while (childToDelete !== null) {
             deleteChild(returnFiber, childToDelete);
             childToDelete = childToDelete.sibling;
@@ -112,7 +115,11 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         }
         return fiber;
     }
-    function updateFromMap(
+    /**
+     * 尝试从 existingChildren map 中复用一个可复用的 fiber，如果不行就创建一个新的。
+     * 原名：updateFromMap，很难理解
+     */
+    function useFiberInMapOrCreate(
         returnFiber: FiberNode,
         existingChildren: ExistingChildren,
         index: number,
@@ -140,7 +147,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             switch (element.$$typeof) {
                 case REACT_ELEMENT_TYPE:
                     if (element.type === REACT_FRAGMENT_TYPE) {
-                        return updateFragment(
+                        return useAsFragmentFiberOrCreate(
                             returnFiber,
                             before,
                             element, // QUESTION 显然是个数组，既然是数组，那就没有 $$typeof 属性吧
@@ -159,7 +166,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             }
 
             if (Array.isArray(element)) {
-                return updateFragment(
+                return useAsFragmentFiberOrCreate(
                     returnFiber,
                     before,
                     element,
@@ -175,10 +182,10 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         returnFiber: FiberNode,
         currentFirstChild: FiberNode | null,
         /**
-         * 虽然在我们这个项目中，这里是 ReactElement，但是实际 React 有很多其他类型，
+         * 虽然在我们这个项目中，这里是 ReactElement[]，但是实际 React 有很多其他类型，
          * 所以这里用 any。
          */
-        newChild: any[]
+        newChildren: any[]
     ): FiberNode {
         let node: FiberNode | null = null;
         /**
@@ -190,7 +197,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
          */
         let lastNewFiber: FiberNode | null = null;
         /**
-         * 随着遍历而构建中的新 fiber 链表的表尾的表头。协调完后，需要返回它
+         * 随着遍历而构建中的新 fiber 链表的表头。协调完后，需要返回它
          */
         let firstNewFiber: FiberNode | null = null;
         // 1. 将 current 保存在 map 中
@@ -204,9 +211,9 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             current = current.sibling;
         }
         // 2. 遍历 newChild 查看是否可复用
-        for (let i = 0; i< newChild.length; ++i) {
-            const el = newChild[i];
-            const newFiber = updateFromMap(
+        for (let i = 0; i< newChildren.length; ++i) {
+            const el = newChildren[i];
+            const newFiber = useFiberInMapOrCreate(
                 returnFiber,
                 existingChildren,
                 i,
@@ -254,11 +261,17 @@ function ChildReconciler(shouldTrackEffects: boolean) {
 
         return firstNewFiber as FiberNode;
     }
-    return function reconcileChildFibers(
+    return function reconcile(
+        /**
+         * wipFiber
+         */
         returnFiber: FiberNode,
+        /**
+         * newChild 对应的 current，即 wipFiber.alternate.child，mount 时为 null
+         */
         currentFiber: FiberNode | null,
         /**
-         * ReactElement | any[]
+         * newChild or newChildren，类型是 any | any[]
          */
         newChild?: any
     ) {
@@ -300,7 +313,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
                     ));
                 default:
                     if (__DEV__) {
-                        console.warn('未实现的 reconcile 类型');
+                        console.warn('reconcileChildFibers 时，遇到了不能处理的 newChild 类型');
                     }
                     break;
             }
@@ -324,7 +337,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         }
 
         if (__DEV__) {
-            console.warn('未实现的 reconcile 类型', newChild);
+            console.warn('reconcileChildFibers 时，遇到了不能处理的 newChild 类型', newChild);
         }
 
         return null;
@@ -334,8 +347,8 @@ function ChildReconciler(shouldTrackEffects: boolean) {
 export const reconcileChildFibers = ChildReconciler(true);
 export const mountChildFibers = ChildReconciler(false);
 
-export function createFiberFromElement(element: ReactElement): FiberNode {
-    const { type, key, props } = element;
+function createFiberFromElement(element: ReactElement): FiberNode {
+    const { type, key, props, ref } = element;
     let fiberTag: WorkTag = FunctionComponent;
 
     if (typeof type === 'string') {
@@ -346,23 +359,36 @@ export function createFiberFromElement(element: ReactElement): FiberNode {
     }
     const fiber = new FiberNode(fiberTag, props, key);
     fiber.type = type;
+    fiber.ref = ref;
     return fiber;
 }
 
-export function createFiberFromFragment(elements: any[], key: Key) {
+function createFiberFromFragment(elements: any[], key: Key) {
     const fiber = new FiberNode(Fragment, elements, key);
     fiber.type = REACT_FRAGMENT_TYPE;
     return fiber;
 }
 
-function useFiber(fiber: FiberNode, pendingProps: Props): FiberNode {
-    const clone = createWorkInProgress(fiber, pendingProps);
+/**
+ * 复用该 oldFiber。这里的“复用”是宏观层面上看到的，即在通俗化的 diff 过程的描述中，某
+ * 个节点在更新之后继续存在便被看成是被复用，而实际在微观底层层面，函数返回的 newFiber
+ * 和 oldFiber 并不是同一个实例，有可能是新创建的对象，也有可能指向的是 alternate。
+ * @param oldFiber 
+ * @param pendingProps 
+ * @returns 
+ */
+function useFiber(oldFiber: FiberNode, pendingProps: Props): FiberNode {
+    const clone = createWorkInProgress(oldFiber, pendingProps);
     clone.index = 0; // 当前仅支持单一孩子节点
     clone.sibling = null;
     return clone;
 }
 
-function updateFragment(
+/**
+ * use a fiber(current) as a Fragment fiber or create a new one.
+ * 原名：updateFragment
+ */
+function useAsFragmentFiberOrCreate(
     returnFiber: FiberNode,
     current: FiberNode | undefined,
     elements: any[],

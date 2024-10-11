@@ -10,3 +10,11 @@ export type WorkTag = typeof FunctionComponent |
     typeof HostComponent |
     typeof HostText |
     typeof Fragment;
+
+export const WorkTagToName = {
+    [HostRoot]: 'HostRoot',
+    [HostComponent]: 'HostComponent',
+    [FunctionComponent]: 'FunctionComponent',
+    [Fragment]: 'Fragment',
+    [HostText]: 'HostText'
+}

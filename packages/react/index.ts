@@ -18,6 +18,11 @@ export const useTransition: Dispatcher['useTransition'] = () => {
     return dispatcher.useTransition();
 }
 
+export const useRef: Dispatcher['useRef'] = <T>(initialValue: T) => {
+    const dispatcher = resolveDispatcher();
+    return dispatcher.useRef<T>(initialValue);
+}
+
 /** 数据共享层 */
 export const Sharing = {
     currentDispatcher,

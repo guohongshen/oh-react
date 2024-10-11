@@ -9,8 +9,8 @@ import scheduler, { Priority } from "scheduler";
 
 
 /**
- * 创建 fiberRootNode 和 fiberRootNode，并返回 fiberRootNode。注意此时还是初始阶段，
- * 但 fiberRootNode.current 已经不为空且指向创建的 fiberRootNode。
+ * 创建 fiberRootNode 和 fiberNode(也即 hostRootFiber)，并返回 fiberRootNode。注意此时还是初始阶段，
+ * 但 fiberRootNode.current 已经不为空且指向创建的 fiberNode。
  * @param container 即 <div id="root">...</div>
  * @returns 
  */

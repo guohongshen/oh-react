@@ -1,10 +1,10 @@
 import { scheduleMicroTask } from "hostConfig";
 import scheduler, { Priority } from 'scheduler';
 import { beginWork } from "./beginWork";
-import { commitHookEffectListCreate, commitHookEffectListDestroy, commitHookEffectListUnmount, commitMutationEffects } from "./commitWork";
+import { commitHookEffectListCreate, commitHookEffectListDestroy, commitHookEffectListUnmount, commitLayoutEffects, commitMutationEffects } from "./commitWork";
 import { completeWork } from "./completeWork";
 import { FiberNode, FiberRootNode, PendingPassiveEffects, createWorkInProgress } from "./fiber";
-import { MutationMask, NoFlags, PassiveEffect, PassiveMask } from "./fiberFlags";
+import { EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask } from "./fiberFlags";
 import { Lane, NoLane, SyncLane, getHighestPriorityLane, lanesToSchedulerPriority, markFiberFinished, mergeLanes } from "./fiberLanes";
 import { flushSyncCallbacks, addCallbackToSyncQueue } from "./syncTaskQueue";
 import { HostRoot } from "./workTags";
@@ -43,29 +43,31 @@ function prepareRefreshStack(root: FiberRootNode, lane: Lane) {
  */
 export function ensureRootIsScheduled(root: FiberRootNode) {
     const lane = getHighestPriorityLane(root.pendingLanes); // 这一优先级的更新批处理
-    const existingCallbackNode = root.callbackNode;
+    const existingTask = root.schedulerTask;
 
     if (lane === NoLane) { // 参数检查
-        if (existingCallbackNode !== null) {
-            scheduler.cancelTask(existingCallbackNode);
+        if (existingTask !== null) {
+            scheduler.cancelTask(existingTask);
         }
-        root.callbackNode = null;
-        root.callbackPriority = NoLane;
+        root.schedulerTask = null;
+        root.currentPriority = NoLane;
         return;
     }
 
     const curPriority = lane;
-    const prevPriority = root.callbackPriority;
+    const prevPriority = root.currentPriority;
 
-    if (curPriority === prevPriority) {
+    if (curPriority === prevPriority) { // 同优先级，不做任务操作
         return;
     }
 
-    if (existingCallbackNode !== null) {
-        scheduler.cancelTask(existingCallbackNode); // 删除低优先级任务
+    if (existingTask !== null) {
+        scheduler.cancelTask(existingTask); // 删除低优先级任务
+        // 注意，因为 lane 是 getHighestPriorityLane(root.pendingLanes)，所以 lane
+        // 只会比 existingTask 的 lane 优先级更高。
     }
 
-    let newCallbackNode = null;
+    let newSchedulerTask = null;
 
     if (lane === SyncLane) {
         // 同步优先级，用微任务调度
@@ -80,13 +82,13 @@ export function ensureRootIsScheduled(root: FiberRootNode) {
         }
         // 其他优先级，用宏任务调用
         const priority = lanesToSchedulerPriority(lane);
-        newCallbackNode = scheduler.addTask(
+        newSchedulerTask = scheduler.addTask(
             priority,
             performConcurrentWorkOnRoot.bind(null, root)
         )
     }
-    root.callbackNode = newCallbackNode; // 同步更新时，它是 null
-    root.callbackPriority = curPriority;
+    root.schedulerTask = newSchedulerTask; // 同步更新时，它是 null
+    root.currentPriority = curPriority;
 }
 
 /**
@@ -96,7 +98,7 @@ export function ensureRootIsScheduled(root: FiberRootNode) {
 export function scheduleUpdateOnFiber(fiber: FiberNode, lane: Lane) {
     // TODO: 调度功能
     
-    const root = markUpdateFromFiberToRoot(fiber);
+    const root /* fiberRootNode */ = markUpdateFromFiberToRoot(fiber);
 
     function markRootUpdate(
         root: FiberRootNode,
@@ -109,8 +111,13 @@ export function scheduleUpdateOnFiber(fiber: FiberNode, lane: Lane) {
     ensureRootIsScheduled(root);
 }
 
-// QUESTION: fiberRootNode 不应该只有一个吗，那存在一个全局变量里不就好了，为什么还要
-// 往上查找。
+/**
+ * 返回 FiberRootNode，除此之外什么也不做。
+ * QUESTION: fiberRootNode 不应该只有一个吗，那存在一个全局变量里不就好了，为什么还要
+ * 往上查找。
+ * @param fiber 
+ * @returns 
+ */
 export function markUpdateFromFiberToRoot(
     fiber: FiberNode
 ) {
@@ -184,17 +191,19 @@ function commitRoot(root: FiberRootNode) {
     }
 
     // 判断是否存在 3 个子阶段需要执行的操作
-    const subtreeHasEffect = (finishedWork.subtreeFlags & MutationMask) !== NoFlags;
-    const rootHasEffect = (finishedWork.flags & MutationMask) !== NoFlags;
+    const subtreeHasEffect = (finishedWork.subtreeFlags & EffectMaskDuringMutation) !== NoFlags;
+    const rootHasEffect = (finishedWork.flags & EffectMaskDuringMutation) !== NoFlags;
 
     if (subtreeHasEffect || rootHasEffect) {
-        // beforeMutation
-        // mutation
+        // 阶段1/3 beforeMutation
+
+        // 阶段2/3 mutation
         commitMutationEffects(finishedWork, root);
 
         root.current = finishedWork; // wipTree -> current
 
-        // layout
+        // 阶段3/3 layout
+        commitLayoutEffects(finishedWork, root);
     } else {
         root.current = finishedWork;
     }
@@ -235,8 +244,11 @@ function renderRoot(
         console.log(`开始${shouldTimeSlice ? '并发' : '同步'}更新`, root);
     }
 
-    if (wipRootRenderLane !== lane) {
-        // 初始化
+    if (wipRootRenderLane !== lane) { // 只有一种情况会不相等：异步任务时间片结束，
+        // 于是中断。之后被其他更高优更新打断，但 wipRootRenderLane 还是异步任务的 lane，
+        // 而 lane 是更高先级的 lane，所以不相等。
+
+        // 对于不同优先级的任务，要初始化一些全局变量  
         prepareRefreshStack(root, lane);
     }
 
@@ -286,7 +298,7 @@ function performSyncWorkOnRoot(root: FiberRootNode) {
     const exitStatus = renderRoot(root, lane, false);
 
     if (exitStatus === RootExitStatus.RootCompleted) {
-        const finishedWork = root.current.alternate;
+        const finishedWork = root.current.alternate; // render 完成后，仍然是 wipTree，commit 阶段画到页面上后再转为 current 吧
         root.finishedWork = finishedWork;
         root.finishedLane = lane;
         wipRootRenderLane = NoLane;
@@ -304,17 +316,17 @@ function performConcurrentWorkOnRoot(
     root: FiberRootNode,
     didTimeout?: boolean
 ): any {
-    // 保证之前的 useEffect 执行完毕，因为有可能之前的 useEffect 回调中会触发更高优先
-    // 级的更新，如：
+    // 保证之前的副作用执行完毕。因为本次更新优先级如果比 Priority.NormalPriority 高
+    // 那么就会插在副作用之前执行，而副作用的回调中是有可能触发更高优先级更新的，如：
     // App(){
     //    useEffect(() => { 产生更高优先级的更新; }, [deps])
     // }
-    // 那么这次的更新就应该被这个高优更新打断，没必要进行
-    const curCallback = root.callbackNode;
+    // 那么这次的更新就应该被这个高优更新打断，没必要进行。所以先把副作用执行完毕。
+    const curCallback = root.schedulerTask;
     const didFlushPassiveEffect = flushPassiveEffects(root.pendingPassiveEffects);
     if (didFlushPassiveEffect) {
-        if (root.callbackNode !== curCallback) {
-            // 这种情况是副作用的执行中产生了更高优先级的任务，调用了 ensureRootIsScheduled
+        if (root.schedulerTask !== curCallback) {
+            // 这种情况正因为是副作用的执行中产生了更高优先级的任务，调用了 ensureRootIsScheduled
             // 导致了 root.callbackNode 被赋值为新的值，所以这里不相等。
             // 可以看成是高优任务打断了低优任务，这里低优任务直接返回 null，取消本次低优任务。
             return null;
@@ -322,7 +334,7 @@ function performConcurrentWorkOnRoot(
     }
 
     const lane = getHighestPriorityLane(root.pendingLanes);
-    const curCallbackNode = root.callbackNode;
+    const curCallbackNode = root.schedulerTask;
     
     if (lane === NoLane) { // 错误检查
         return null;
@@ -333,14 +345,18 @@ function performConcurrentWorkOnRoot(
     // render 阶段
     const exitStatus = renderRoot(root, lane, !needSync);
 
-    ensureRootIsScheduled(root);
-
     if (exitStatus === RootExitStatus.RootInCompleted) {
-        if (root.callbackNode !== curCallbackNode) { // 不会出现这种情况
+        ensureRootIsScheduled(root);
+
+        if (root.schedulerTask !== curCallbackNode) {
+            // QUESTION 怎么会出现这种情况呢？renderRoot 的执行过程中也会产生更新？如果是这样，
+            // 那上面那行 ensureRootIsScheduled 就有必要调用
             return null;
         }
         return performConcurrentWorkOnRoot.bind(null, root); // 继续本任务
     } else if (exitStatus === RootExitStatus.RootCompleted) {
+        ensureRootIsScheduled(root);
+
         const finishedWork = root.current.alternate;
         root.finishedWork = finishedWork;
         root.finishedLane = lane;
@@ -357,6 +373,13 @@ function performConcurrentWorkOnRoot(
 function flushPassiveEffects(
     pendingPassiveEffects: PendingPassiveEffects
 ) {
+    /**
+     * 副作用不可能被执行到一半就停下来，所以只能是要么没执行，要么执行完了。本次函数执行
+     * 完副作用后，变量为 true；如果副作用之前已经被执行完了，本函数又被外部调用了，就会
+     * 得到 false。本函数会在两种情况下被调用：一种是常规的 scheduler 调度，一种是外部
+     * 主动调用。在外部条件不变时，本函数被调用一次和两次没有什么区别，两次只不过是第一
+     * 次执行副作用，而第二次什么也不做。
+     */
     let didFlushPassiveEffect = false;
     pendingPassiveEffects.unmount.forEach(effect => {
         didFlushPassiveEffect = true;
@@ -388,7 +411,7 @@ function flushPassiveEffects(
     pendingPassiveEffects.update = [];
 
     // 对于在执行 effect 过程中触发的更新，再调用一次 flush
-    flushSyncCallbacks();
+    // flushSyncCallbacks(); // // 我觉得这一行代码应该删掉，这是只有同步更新时写的代码
 
     return didFlushPassiveEffect;
 }

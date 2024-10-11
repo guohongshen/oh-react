@@ -1,4 +1,4 @@
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import TabButton from './TabButton';
 import AboutTab from './AboutTab';
@@ -20,6 +20,10 @@ export default function TabContainer() {
 console.log('isPending: ', isPending);
 console.log('tab: ', tab);
 
+useEffect(() => {
+  console.log('App mounted');
+  
+}, [])
 
   function selectTab(nextTab) {
     startTransition(() => {
@@ -51,8 +55,7 @@ console.log('tab: ', tab);
       </TabButton>
       <hr />
       {tab === 'about' && <AboutTab />}
-      {tab === 'posts' && <PostsTab />}
-      {tab === 'contact' && <ContactTab />}
+
     </>
   );
 }

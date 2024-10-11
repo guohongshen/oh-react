@@ -1,5 +1,5 @@
 import { Props, Key } from "shared/ReactTypes";
-import { WorkTag } from './workTags';
+import { WorkTag, WorkTagToName } from './workTags';
 import { Flags, NoFlags } from "./fiberFlags";
 import { Container } from "hostConfig";
 import { UpdateQueue } from "./updateQueue";
@@ -8,13 +8,20 @@ import { Effect } from "./fiberHooks";
 
 export class FiberNode {
     tag: WorkTag;
+    tagName: string;
     key: Key;
     stateNode: any;
     pendingProps: Props;
     memoizedProps: Props | null;
     memoizedState: any;
     alternate: FiberNode | null;
+    /**
+     * 本节点的 flags，不包括后代 fiber 节点那些
+     */
     flags: Flags;
+    /**
+     * 所有后代 fiber 节点的 flags
+     */
     subtreeFlags: Flags;
     updateQueue: UpdateQueue | null;
     deletions: FiberNode[] | null;
@@ -30,6 +37,7 @@ export class FiberNode {
     ref: any;
     constructor(tag: WorkTag, pendingProps: Props, key: Key) {
         this.tag = tag;
+        this.tagName = WorkTagToName[tag];
         this.key = key || null;
         this.stateNode = null;
         this.type = null;
@@ -63,22 +71,28 @@ export interface PendingPassiveEffects {
 export class FiberRootNode {
     container: Container;
     current: FiberNode;
-    /**
-     * 当前已经完成递归流程的 hostRootFiber
-     */
-    finishedWork: FiberNode | null;
-    pendingPassiveEffects: PendingPassiveEffects;
-    pendingLanes: Lanes;
-    finishedLane: Lane;
 
     /**
-     * scheduler.addTask() 的返回值，也即 newTask 实例，这么讲它的名字应该是 task。
+     * 刚刚完成了 render 工作的 hostRootFiber
      */
-    callbackNode: any;
+    finishedWork: FiberNode | null;
     /**
-     * 当前被 scheduler 执行的更新任务的优先级(task 对应的 priority 的 lane 形式)。
+     * finishedWork render 过程中的 render lane，也即刚刚完成的这次 render 的 lane
      */
-    callbackPriority: Lane;
+    finishedLane: Lane;
+
+    pendingPassiveEffects: PendingPassiveEffects;
+    pendingLanes: Lanes;
+
+    /**
+     * scheduler.addTask() 的返回值，也即 newTask 实例，原名：callbackNode
+     */
+    schedulerTask: any;
+    /**
+     * 当前更新的优先级，可能是同步优先级，也可能是异步优先级（如果是异步优先级，那就是
+     *  schedulerTask 的 lane）。原名：callbackPriority
+     */
+    currentPriority: Lane;
 
     constructor (container: Container, hostRootFiber: FiberNode) {
         /**
@@ -103,11 +117,18 @@ export class FiberRootNode {
             update: []
         }
 
-        this.callbackNode = null;
-        this.callbackPriority = NoLane;
+        this.schedulerTask = null;
+        this.currentPriority = NoLane;
     }
 }
 
+/**
+ * 如果 current.alternate !== null，则对 alternate 的某些属性重新赋值即可完成复用，
+ * 否则就创建一个全新的 FiberNode，并将引用赋值给 current.alternate。
+ * @param current 
+ * @param pendingProps 
+ * @returns 
+ */
 export function createWorkInProgress(
     current: FiberNode,
     pendingProps: Props
@@ -138,6 +159,7 @@ export function createWorkInProgress(
     wip.child = current.child;
     wip.memoizedProps = current.memoizedProps;
     wip.memoizedState = current.memoizedState;
+    wip.ref = current.ref;
 
     return wip;
 }

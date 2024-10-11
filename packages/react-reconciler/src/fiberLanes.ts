@@ -76,6 +76,11 @@ export function getHighestPriorityLane(lanes: Lanes) {
     return lanes & -lanes;
 }
 
+/**
+ * 从 root.pendingLanes 中移除 lane，表示该优先级的更新已经完成了。
+ * @param root 
+ * @param lane 
+ */
 export function markFiberFinished(
     root: FiberRootNode,
     lane: Lane

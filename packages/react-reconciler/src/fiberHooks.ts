@@ -29,7 +29,7 @@ type EffectCallback = () => void;
 /** 依赖数组 */
 type EffectDeps = any[] | null;
 /**
- * effect 类的 hook 用于存储 effect 相关信息。
+ * Effect 类的 Hooks 的用来存储数据的
  */
 export interface Effect {
     tag: HookEffectTag;
@@ -78,13 +78,15 @@ export function renderWithHooks(wip: FiberNode, lane: Lane) {
 const HooksDispatcherOnMount: Dispatcher = {
     useState: mountState,
     useEffect: mountEffect,
-    useTransition: mountTransition
+    useTransition: mountTransition,
+    useRef: mountRef
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
     useState: updateState,
     useEffect: updateEffect,
-    useTransition: updateTransition
+    useTransition: updateTransition,
+    useRef: updateRef
 };
 
 function mountState<State>(
@@ -236,8 +238,22 @@ function updateTransition(): [boolean, (callback: () => void) => void] {
     return [isTransitioning, starTransition];
 }
 
+function mountRef<T>(initialValue: T): { current: T } {
+    const hook = mountWorkInProgressHook();
+    const ref = {
+        current: initialValue
+    };
+    hook.memoizedState = ref;
+    return ref;
+}
+
+function updateRef<T>(initialValue: T): { current: T } {
+    const hook = updateWorkInProgressHook();
+    return hook.memoizedState;
+}
+
 /**
- * mount 时，创建 hook 并加入到 hook 链表，并返回。
+ * mount 时，创建 hook 并加入到 currentlyRenderingFiber 的 hook 链表，并返回。
  * @returns 
  */
 function mountWorkInProgressHook(): Hook {
@@ -264,11 +280,16 @@ function mountWorkInProgressHook(): Hook {
     return hook;
 }
 
+/**
+ * update 时，复用 current hook 的属性值，创建新的 hook 实例并加入到 currentlyRenderingFiber.memoizedState 
+ * hook 链表 中，将新的 hook 实例赋值给 workInProgressHook 并返回。
+ * @returns 
+ */
 function updateWorkInProgressHook(): Hook {
     // TODO render 阶段触发的更新
     let nextCurrentHook: Hook | null = null;
 
-     if (currentHook === null) {
+    if (currentHook === null) {
         // 这是这个 FC update 时的第一个 hook
         const current = currentlyRenderingFiber?.alternate;
         if (current !== null) {
@@ -276,26 +297,26 @@ function updateWorkInProgressHook(): Hook {
         } else {
             nextCurrentHook = null; // 错误的边界情况，暂时忽略
         }
-     } else {
+    } else {
         // 这个 FC update 时，后续的 hook
         nextCurrentHook = currentHook.next;
-     }
+    }
 
-     if (nextCurrentHook === null) {
+    if (nextCurrentHook === null) {
         // mount 时执行了三个 hook，update 时却调用了四次，所以第四次 nextCurrent 是 null
         throw new Error(`组件${currentlyRenderingFiber?.type}本次执行时的 Hook 比上次执行时多`)
-     }
+    }
 
-     currentHook = nextCurrentHook as Hook;
-     const newHook: Hook = {
+    currentHook = nextCurrentHook as Hook;
+    const newHook: Hook = {
         memoizedState: currentHook.memoizedState,
         updateQueue: currentHook.updateQueue,
         next: null,
         baseQueue: currentHook.baseQueue,
         baseState: currentHook.baseState
-     };
+    };
 
-     if (workInProgressHook === null) {
+    if (workInProgressHook === null) {
         if (currentlyRenderingFiber === null) {
             // 在外部调用 hook
             throw new Error('请在函数组件内调用 hook');
@@ -312,6 +333,12 @@ function updateWorkInProgressHook(): Hook {
     return workInProgressHook;
 }
 
+/**
+ * useState 返回的 setState 函数
+ * @param fiber 
+ * @param updateQueue 
+ * @param action 
+ */
 function dispatchSetState<State>(
     fiber: FiberNode,
     updateQueue: UpdateQueue<State>,
@@ -324,7 +351,7 @@ function dispatchSetState<State>(
 }
 
 /**
- * 将 effect 加入到 fiber.updateQueue.lastEffect 为尾的 effect 列表中（updateQueue
+ * 将 effect 加入到 currentlyRenderingFiber.updateQueue.lastEffect 为尾的 effect 列表中（updateQueue
  * 是 FCUpdateQueue，相比于 UpdateQueue 多了一个 lastEffect 属性）。最后返回该 effect。
  * @param hookFlags 
  * @param create 

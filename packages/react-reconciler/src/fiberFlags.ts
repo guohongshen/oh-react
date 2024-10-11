@@ -13,9 +13,28 @@ export const Ref = 0b0010000;
 
 export type Flags = number;
 
-export const MutationMask = Placement | Update | ChildDeletion;
+/**
+ * effect mask used during mutation phrase，Mutation 阶段的工作掩码，也即用来判断 Mutation 阶段需要做什么工作。
+ * 原名：MutationMask
+ */
+export const EffectMaskDuringMutation = Placement | Update | ChildDeletion | Ref; // 有 Ref 即表示 mutation 阶段需要解绑 Ref
+
+/**
+ * effect mask used during layout phrase，Layout 阶段的工作掩码，也即用来判断 Mutation 阶段需要做什么工作。
+ * 原名：LayoutMask
+ */
+export const EffectMaskDuringLayout = Ref; // 有 Ref 即表示 mutation 阶段需要解绑 Ref
+
 
 /**
  * 如果依赖没有变化，但是组件标记删除，那么也要触发 useEffect destroy 回调。
  */
 export const PassiveMask = PassiveEffect | ChildDeletion;
+
+/**
+ * (自己归类的)
+ */
+export const EffectMask = {
+    Mutation: EffectMaskDuringMutation,
+    Layout: EffectMaskDuringLayout
+}

@@ -74,6 +74,12 @@ export default class Scheduler {
 	 * QUESTION 上一次执行时的优先级
 	 */
 	private previousPriority: Priority = Priority.NoPriority;
+	/**
+	 * 设置 currentPriority = priority，并立即执行 func()。
+	 * @param priority 
+	 * @param func 
+	 * @returns 
+	 */
 	public runWithPriority(priority: Priority, func: any) {
 		this.previousPriority = this.currentPriority;
 		this.currentPriority = priority;
