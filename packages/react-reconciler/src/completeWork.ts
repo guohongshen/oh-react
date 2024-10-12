@@ -1,6 +1,6 @@
 import { Container, Instance, appendInitialChild, createInstance, createTextInstance } from "hostConfig";
 import { FiberNode } from "./fiber";
-import { Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
+import { ContextProvider, Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
 import { NoFlags, Ref, Update } from "./fiberFlags";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
@@ -67,6 +67,9 @@ export function completeWork(wip: FiberNode) {
             updateSubtreeFlags(wip);
             return null;
         case Fragment:
+            updateSubtreeFlags(wip);
+            return null;
+        case ContextProvider:
             updateSubtreeFlags(wip);
             return null;
         default:

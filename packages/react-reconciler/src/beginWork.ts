@@ -1,7 +1,7 @@
 import { ReactElement } from "shared/ReactTypes";
 import { FiberNode } from "./fiber";
 import { UpdateQueue, processUpdateQueue } from "./updateQueue";
-import { Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
+import { ContextProvider, Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
 import { mountChildFibers, reconcileChildFibers } from "./childFibers";
 import { renderWithHooks } from "./fiberHooks";
 import { Lane } from "./fiberLanes";
@@ -21,6 +21,8 @@ export function beginWork(wip: FiberNode, renderLane: Lane) {
             return beginWorkOnFunctionComponent(wip, renderLane);
         case Fragment:
             return beginWorkOnFragment(wip);
+        case ContextProvider:
+            return beginWorkOnContextProvider(wip);
         default:
             if (__DEV__) {
                 console.warn('beginWork 未实现的类型');
@@ -83,6 +85,13 @@ function beginWorkOnFragment(wip: FiberNode) {
     // 但是如果没有 key，那就不会创建 Fragment fiber
     const nextChildren = wip.pendingProps;
 
+    reconcileChildren(wip, nextChildren);
+    return wip.child;
+}
+
+function beginWorkOnContextProvider(wip: FiberNode) {
+    const nextProps = wip.pendingProps;
+    const nextChildren = nextProps.children;
     reconcileChildren(wip, nextChildren);
     return wip.child;
 }

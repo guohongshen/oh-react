@@ -1,7 +1,7 @@
 import { Key, Props, ReactElement } from "shared/ReactTypes";
 import { FiberNode, createWorkInProgress } from "./fiber";
-import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from "shared/ReactSymbols";
-import { Fragment, FunctionComponent, HostComponent, HostText, WorkTag } from "./workTags";
+import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE, REACT_PROVIDER_TYPE } from "shared/ReactSymbols";
+import { ContextProvider, Fragment, FunctionComponent, HostComponent, HostText, WorkTag } from "./workTags";
 import { ChildDeletion, Placement } from "./fiberFlags";
 
 type ExistingChildren = Map<Key, FiberNode>;
@@ -354,6 +354,8 @@ function createFiberFromElement(element: ReactElement): FiberNode {
     if (typeof type === 'string') {
         // <div/> type: 'div
         fiberTag = HostComponent;
+    } else if (typeof type === 'object' && type.$$typeof === REACT_PROVIDER_TYPE) {
+        fiberTag = ContextProvider;
     } else if (typeof type !== 'function' && __DEV__) {
         console.warn('未定义的 type 类型', type);
     }
