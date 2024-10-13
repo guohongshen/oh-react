@@ -1,6 +1,6 @@
 import { Container } from "hostConfig";
 import { FiberNode, FiberRootNode } from "./fiber";
-import { HostRoot } from "./workTags";
+import { WorkTag } from "./workTags";
 import { UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate } from "./updateQueue";
 import { ReactElement } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
@@ -16,7 +16,7 @@ import scheduler, { Priority } from "scheduler";
  */
 export function createContainer(container: Container) {
     const hostRootFiber = new FiberNode(
-        HostRoot,
+        WorkTag.HostRoot,
         {},
         null
     );

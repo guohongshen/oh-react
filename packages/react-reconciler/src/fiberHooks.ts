@@ -2,7 +2,7 @@ import internals from "shared/internals";
 import { FiberNode } from "./fiber";
 import { Dispatch, Dispatcher } from "react/src/currentDispatcher";
 import { Update, UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
-import { Action } from "shared/ReactTypes";
+import { Action, ReactContext } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
 import { Flags, PassiveEffect } from "./fiberFlags";
@@ -79,14 +79,16 @@ const HooksDispatcherOnMount: Dispatcher = {
     useState: mountState,
     useEffect: mountEffect,
     useTransition: mountTransition,
-    useRef: mountRef
+    useRef: mountRef,
+    useContext: readContext
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
     useState: updateState,
     useEffect: updateEffect,
     useTransition: updateTransition,
-    useRef: updateRef
+    useRef: updateRef,
+    useContext: readContext
 };
 
 function mountState<State>(
@@ -250,6 +252,15 @@ function mountRef<T>(initialValue: T): { current: T } {
 function updateRef<T>(initialValue: T): { current: T } {
     const hook = updateWorkInProgressHook();
     return hook.memoizedState;
+}
+
+function readContext<T>(context: ReactContext<T>): T {
+    const consumer = currentlyRenderingFiber;
+    if (consumer === null) { // 意外🉐地在函数组件外调用 useContext，报错
+        throw new Error('只能在函数组件中调用 useContext');
+    }
+    const value = context._currentValue;
+    return value;
 }
 
 /**

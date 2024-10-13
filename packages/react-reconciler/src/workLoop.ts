@@ -7,7 +7,7 @@ import { FiberNode, FiberRootNode, PendingPassiveEffects, createWorkInProgress }
 import { EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask } from "./fiberFlags";
 import { Lane, NoLane, SyncLane, getHighestPriorityLane, lanesToSchedulerPriority, markFiberFinished, mergeLanes } from "./fiberLanes";
 import { flushSyncCallbacks, addCallbackToSyncQueue } from "./syncTaskQueue";
-import { HostRoot } from "./workTags";
+import { WorkTag } from "./workTags";
 import { HookHasEffect, Passive } from "./hookEffectTag";
 
 let workInProgress: FiberNode | null;
@@ -127,7 +127,7 @@ export function markUpdateFromFiberToRoot(
         node = parent;
         parent = node.return;
     }
-    if (node.tag === HostRoot) {
+    if (node.tag === WorkTag.HostRoot) {
         return node.stateNode;
     }
     return null;

@@ -1,7 +1,7 @@
 import { Container, Instance, appendChildToContainer, commitUpdate, insertBefore, removeChild } from "hostConfig";
 import { FiberNode, FiberRootNode, PendingPassiveEffects } from "./fiber";
 import { ChildDeletion, Flags, EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask, Placement, Update, EffectMask, Ref } from "./fiberFlags";
-import { FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
+import { WorkTag } from "./workTags";
 import { Effect, FCUpdateQueue } from "./fiberHooks";
 import { HookHasEffect } from "./hookEffectTag";
 
@@ -53,20 +53,20 @@ function commitDeletion(childToDelete: FiberNode, root: FiberRootNode) {
     outer: do {
         // 做 unmount 处理：
         switch (node.tag) {
-            case HostComponent:
+            case WorkTag.HostComponent:
                 unbindRef(childToDelete);
                 if (temp === null) { // 说明本节点是最大真实非严格子树的根节点
                     temp = node;
                     rootsOfTreesWithHostFiberToDelete.push(node);
                 }
                 break;
-            case HostText:
+            case WorkTag.HostText:
                 if (!temp) { // 说明本节点是最大真实非严格子树的根节点
                     temp = node;
                     rootsOfTreesWithHostFiberToDelete.push(node);
                 }
                 break;
-            case FunctionComponent:
+            case WorkTag.FunctionComponent:
                 // useEffect、unmount、解绑 ref
                 commitPassiveEffect(node, root, 'unmount');
                 break;
@@ -116,7 +116,7 @@ function commitPassiveEffect(
 ) {
     // 常规的类型检查
     if (
-        fiber.tag !== FunctionComponent || // 非函数组件
+        fiber.tag !== WorkTag.FunctionComponent || // 非函数组件
         (type === 'update' && (fiber.flags & PassiveEffect) === NoFlags) // type 为 update，却没有 PassiveEffect 标志，属于异常
     ) {
         return;
@@ -219,8 +219,8 @@ function getHostSibling(fiber: FiberNode): Instance | null {
         while (node.sibling === null) {
             const parent = node.return;
             if (parent === null ||
-                parent.tag === HostComponent || // QUESTION
-                parent.tag === HostRoot // HostRot 没有兄弟节点，所以不用找了
+                parent.tag === WorkTag.HostComponent || // QUESTION
+                parent.tag === WorkTag.HostRoot // HostRot 没有兄弟节点，所以不用找了
             ) {
                 return null;
             }
@@ -229,7 +229,7 @@ function getHostSibling(fiber: FiberNode): Instance | null {
         node.sibling.return = node.return;
         node = node.sibling;
         
-        while (node.tag !== HostText && node.tag !== HostComponent) {
+        while (node.tag !== WorkTag.HostText && node.tag !== WorkTag.HostComponent) {
             // 向下遍历
             if (!isStable(node)) {
                 continue findSibling;
@@ -256,10 +256,10 @@ function getHostParent(fiber: FiberNode): Container | null {
         const parentTag = parent.tag;
         // hostComponent
         // hostRoot
-        if (parentTag === HostComponent) {
+        if (parentTag === WorkTag.HostComponent) {
             return parent.stateNode;
         }
-        if (parentTag === HostRoot) {
+        if (parentTag === WorkTag.HostRoot) {
             return (parent.stateNode as FiberRootNode).container;
         }
         parent = parent.return;
@@ -276,7 +276,7 @@ function insertBeforeSiblingOrAppendIntoParent(
     hostSibling?: Instance | null
 ) {
     // fiber host
-    if (finishedWork.tag === HostComponent || finishedWork.tag === HostText) {
+    if (finishedWork.tag === WorkTag.HostComponent || finishedWork.tag === WorkTag.HostText) {
         if (hostSibling) {
             insertBefore(
                 hostParent,
@@ -408,7 +408,7 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
         finishedWork.flags &= ~PassiveEffect;
     }
 
-    if ((flags & Ref) !== NoFlags && tag === HostComponent) {
+    if ((flags & Ref) !== NoFlags && tag === WorkTag.HostComponent) {
         unbindRef(finishedWork);
     }
 }
@@ -424,7 +424,7 @@ export const commitMutationEffects = commitEffects(
  */
 function commitLayoutEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNode) {
     const { flags, tag } = finishedWork;
-    if ((flags & Ref) !== NoFlags && tag === HostComponent) { // 额外加个检查，只有 HostComponent 才支持绑定 ref
+    if ((flags & Ref) !== NoFlags && tag === WorkTag.HostComponent) { // 额外加个检查，只有 HostComponent 才支持绑定 ref
         // 绑定新的 ref
         bindRef(finishedWork);
         finishedWork.flags &= ~Ref; // 移除 Placement

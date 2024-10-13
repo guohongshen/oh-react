@@ -1,7 +1,8 @@
 import { Container, Instance, appendInitialChild, createInstance, createTextInstance } from "hostConfig";
 import { FiberNode } from "./fiber";
-import { ContextProvider, Fragment, FunctionComponent, HostComponent, HostRoot, HostText } from "./workTags";
+import { WorkTag } from "./workTags";
 import { NoFlags, Ref, Update } from "./fiberFlags";
+import { popContextValue } from "./fiberContext";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
 export function markUpdate(fiber: FiberNode) {
@@ -19,7 +20,7 @@ export function completeWork(wip: FiberNode) {
     const current = wip.alternate;
 
     switch (wip.tag) {
-        case HostComponent:
+        case WorkTag.HostComponent:
             if (current !== null && wip.stateNode) {
                 // TODO 这里应该按照下面两点分别对比，如果发生了变化再给打上 Update。但时间不够，所以简单粗暴直接给打上 Update
                 // 1. props 是否变化 { onCLick: xx } { onCLick: xxx }
@@ -45,7 +46,7 @@ export function completeWork(wip: FiberNode) {
             }
             updateSubtreeFlags(wip);
             return null;
-        case HostText:
+        case WorkTag.HostText:
             if (current !== null && wip.stateNode) {
                 // update
                 const oldText = current.memoizedProps.content;
@@ -60,16 +61,17 @@ export function completeWork(wip: FiberNode) {
             }
             updateSubtreeFlags(wip);
             return null;
-        case HostRoot:
+        case WorkTag.HostRoot:
             updateSubtreeFlags(wip);
             return null;
-        case FunctionComponent:
+        case WorkTag.FunctionComponent:
             updateSubtreeFlags(wip);
             return null;
-        case Fragment:
+        case WorkTag.Fragment:
             updateSubtreeFlags(wip);
             return null;
-        case ContextProvider:
+        case WorkTag.ContextProvider:
+            popContextValue(wip.type._context)
             updateSubtreeFlags(wip);
             return null;
         default:
@@ -94,7 +96,7 @@ function appendAllRealSubtreeRootDOMNodes(parent: Container | Instance, wip: Fib
     let node = wip.child;
 
     while (node !== null) {
-        if (node.tag === HostComponent || node.tag === HostText) {
+        if (node.tag === WorkTag.HostComponent || node.tag === WorkTag.HostText) {
             appendInitialChild(parent, node?.stateNode);
             // 这里 append 之后，可以看成是 node.child === null，因为这个子树下面的
             // 子节点在执行 completeWork 已经做了这些工作了。

@@ -1,7 +1,13 @@
 import { Dispatcher, resolveDispatcher } from "./src/currentDispatcher";
 import currentDispatcher from "./src/currentDispatcher";
-import { jsxDEV, jsx, isValidElement as _isValidElement, Fragment as _Fragment } from "./src/jsx";
+import { jsxDEV, jsx, isValidElement as _isValidElement } from "./src/jsx";
 import ReactCurrentBatchConfig from "./src/currentBatchConfig";
+import { ReactContext } from "shared/ReactTypes";
+export * from './src/context';
+export {
+    REACT_FRAGMENT_TYPE as Fragment,
+    REACT_SUSPENSE_TYPE as Suspense
+} from 'shared/ReactSymbols';
 
 export const useState: Dispatcher['useState'] = (initialState) => {
     const dispatcher = resolveDispatcher();
@@ -23,6 +29,11 @@ export const useRef: Dispatcher['useRef'] = <T>(initialValue: T) => {
     return dispatcher.useRef<T>(initialValue);
 }
 
+export const useContext: Dispatcher['useContext'] = <T>(context: ReactContext<T>) => {
+    const dispatcher = resolveDispatcher();
+    return dispatcher.useContext(context);
+}
+
 /** 数据共享层 */
 export const Sharing = {
     currentDispatcher,
@@ -35,5 +46,3 @@ export const version = '0.0.0';
 export const createElement = jsxDEV;
 
 export const isValidElement = _isValidElement;
-
-export const Fragment = _Fragment;

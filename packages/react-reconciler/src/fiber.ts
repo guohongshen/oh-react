@@ -5,6 +5,7 @@ import { Container } from "hostConfig";
 import { UpdateQueue } from "./updateQueue";
 import { Lane, Lanes, NoLane, NoLanes } from "./fiberLanes";
 import { Effect } from "./fiberHooks";
+import { REACT_FRAGMENT_TYPE } from "shared/ReactSymbols";
 
 export class FiberNode {
     tag: WorkTag;
@@ -162,4 +163,20 @@ export function createWorkInProgress(
     wip.ref = current.ref;
 
     return wip;
+}
+
+export function createFiberFromFragment(elements: any[], key: Key) {
+    const fiber = new FiberNode(WorkTag.Fragment, elements, key);
+    fiber.type = REACT_FRAGMENT_TYPE;
+    return fiber;
+}
+
+export interface OffscreenProps {
+    mode: 'visible' | 'hidden',
+    children: any;
+}
+
+export function createFiberFromOffscreen(pendingProps: OffscreenProps) {
+    const fiber = new FiberNode(WorkTag.Offscreen, pendingProps, null);
+    return fiber;
 }

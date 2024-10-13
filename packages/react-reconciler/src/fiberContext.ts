@@ -13,6 +13,8 @@ let prevContextValue: any = null;
 const prevContextValuesStack: any[] = [];
 
 export function pushContextValue<T>(context: ReactContext<T>, newValue: T) {
+    console.log('newValue: ', newValue);
+    
     prevContextValuesStack.push(context._currentValue);
     context._currentValue = newValue;
 }

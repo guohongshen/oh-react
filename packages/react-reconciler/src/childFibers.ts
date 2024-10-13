@@ -1,7 +1,7 @@
 import { Key, Props, ReactElement } from "shared/ReactTypes";
 import { FiberNode, createWorkInProgress } from "./fiber";
-import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE, REACT_PROVIDER_TYPE } from "shared/ReactSymbols";
-import { ContextProvider, Fragment, FunctionComponent, HostComponent, HostText, WorkTag } from "./workTags";
+import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE, REACT_PROVIDER_TYPE, REACT_SUSPENSE_TYPE } from "shared/ReactSymbols";
+import { WorkTag } from "./workTags";
 import { ChildDeletion, Placement } from "./fiberFlags";
 
 type ExistingChildren = Map<Key, FiberNode>;
@@ -91,7 +91,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         content: string | number
     ) {
         while (currentFiber !== null) { // update
-            if (currentFiber.tag === HostText) {
+            if (currentFiber.tag === WorkTag.HostText) {
                 // 类型没变，可以复用
                 const existing = useFiber(currentFiber, { content });
                 existing.return = returnFiber;
@@ -102,7 +102,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             currentFiber = currentFiber.sibling;
         }
         const fiber = new FiberNode(
-            HostText, 
+            WorkTag.HostText, 
             {content},
             null
         )
@@ -115,6 +115,19 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         }
         return fiber;
     }
+    function getElementKey(element: any, index: number) {
+        if (
+            Array.isArray(element) ||
+            typeof element === 'string' ||
+            typeof element === 'number' ||
+            element === undefined || // 比如 {isShow && <Cpn/>}
+            element === null || // 比如 {isShow ? <Cpn/> : null}
+            typeof element === 'boolean'
+        ) {
+            return index;
+        }
+        return element.key !== null ? element.key : index;
+    }
     /**
      * 尝试从 existingChildren map 中复用一个可复用的 fiber，如果不行就创建一个新的。
      * 原名：updateFromMap，很难理解
@@ -125,18 +138,18 @@ function ChildReconciler(shouldTrackEffects: boolean) {
         index: number,
         element: any
     ): FiberNode | null {
-        const key = element.key !== null ? element.key : index;
+        const key = getElementKey(element, index);
         const before = existingChildren.get(key);
-        if (typeof element === 'string' || typeof element === 'number') {
+        if ((typeof element === 'string' && element !== '') || typeof element === 'number') {
             // HostText
             if (before) {
-                if (before.tag === HostText) {
+                if (before.tag === WorkTag.HostText) {
                     existingChildren.delete(key);
                     return useFiber(before, { content: element + '' });
                 }
             }
             return new FiberNode(
-                HostText,
+                WorkTag.HostText,
                 { content: element + '' },
                 null
             );
@@ -176,6 +189,7 @@ function ChildReconciler(shouldTrackEffects: boolean) {
             }
         }
 
+        // 其他情况如：null, undefined, boolean or ''。
         return null;
     }
     function reconcileChildrenArray(
@@ -349,13 +363,15 @@ export const mountChildFibers = ChildReconciler(false);
 
 function createFiberFromElement(element: ReactElement): FiberNode {
     const { type, key, props, ref } = element;
-    let fiberTag: WorkTag = FunctionComponent;
+    let fiberTag: WorkTag = WorkTag.FunctionComponent;
 
     if (typeof type === 'string') {
         // <div/> type: 'div
-        fiberTag = HostComponent;
+        fiberTag = WorkTag.HostComponent;
     } else if (typeof type === 'object' && type.$$typeof === REACT_PROVIDER_TYPE) {
-        fiberTag = ContextProvider;
+        fiberTag = WorkTag.ContextProvider;
+    } else if (type === REACT_SUSPENSE_TYPE) {
+        fiberTag = WorkTag.Suspense;
     } else if (typeof type !== 'function' && __DEV__) {
         console.warn('未定义的 type 类型', type);
     }
@@ -366,7 +382,7 @@ function createFiberFromElement(element: ReactElement): FiberNode {
 }
 
 function createFiberFromFragment(elements: any[], key: Key) {
-    const fiber = new FiberNode(Fragment, elements, key);
+    const fiber = new FiberNode(WorkTag.Fragment, elements, key);
     fiber.type = REACT_FRAGMENT_TYPE;
     return fiber;
 }
@@ -398,7 +414,7 @@ function useAsFragmentFiberOrCreate(
     existingChildren: ExistingChildren
 ) {
     let fiber;
-    if (!current || current.tag !== Fragment) {
+    if (!current || current.tag !== WorkTag.Fragment) {
         fiber = createFiberFromFragment(elements, key);
     } else {
         existingChildren.delete(key);

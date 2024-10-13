@@ -11,9 +11,13 @@ export const REACT_FRAGMENT_TYPE = supportSymbol
     : 0xeacb;
 
 export const REACT_CONTEXT_TYPE = supportSymbol
-    ? Symbol.for('react.fragment')
+    ? Symbol.for('react.context')
     : 0xeac2;
 
 export const REACT_PROVIDER_TYPE = supportSymbol
-    ? Symbol.for('react.fragment')
+    ? Symbol.for('react.provider')
     : 0xeac3;
+
+export const REACT_SUSPENSE_TYPE = supportSymbol
+    ? Symbol.for('react.suspense')
+    : 0xeac4;
