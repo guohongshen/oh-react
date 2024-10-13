@@ -1,6 +1,6 @@
-import { Container, Instance, appendChildToContainer, commitUpdate, insertBefore, removeChild } from "hostConfig";
+import { Container, Instance, appendChildToContainer, commitUpdate, hideInstance, hideTextInstance, insertBefore, removeChild, unhideInstance, unhideTextInstance } from "hostConfig";
 import { FiberNode, FiberRootNode, PendingPassiveEffects } from "./fiber";
-import { ChildDeletion, Flags, EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask, Placement, Update, EffectMask, Ref } from "./fiberFlags";
+import { ChildDeletion, Flags, EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask, Placement, Update, EffectMask, Ref, Visibility } from "./fiberFlags";
 import { WorkTag } from "./workTags";
 import { Effect, FCUpdateQueue } from "./fiberHooks";
 import { HookHasEffect } from "./hookEffectTag";
@@ -411,6 +411,12 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
     if ((flags & Ref) !== NoFlags && tag === WorkTag.HostComponent) {
         unbindRef(finishedWork);
     }
+
+    if ((flags & Visibility) !== NoFlags && tag === WorkTag.Offscreen) {
+        const isHidden = finishedWork.pendingProps.mode === 'hidden';
+        hideOrUnhideAllChildren(finishedWork, isHidden);
+        finishedWork.flags &= ~Visibility;
+    }
 }
 export const commitMutationEffects = commitEffects(
     'mutation',
@@ -435,3 +441,86 @@ export const commitLayoutEffects = commitEffects(
     EffectMask.Layout,
     commitLayoutEffectsOnFiber
 );
+
+// 一些工具函数：
+/**
+ * hide or unhide All max real subtree's root's stateNode.
+ * @param finishedWork 
+ * @param isHidden 
+ */
+function hideOrUnhideAllChildren(
+    finishedWork: FiberNode,
+    isHidden?: boolean
+) {
+    runCallbackOnAllMaxRealSubtreeRoots(
+        finishedWork,
+        subtreeRoot => {
+            const { tag, stateNode, memoizedProps } = subtreeRoot;
+            if (tag === WorkTag.HostComponent) {
+                isHidden
+                    ? hideInstance(stateNode)
+                    : unhideInstance(stateNode);
+                // QUESTION 用户应该不会通过 DOMNode.style.setProperty('display', ...)
+                // 来控制元素展示与否吧，虽然我可能会这么做，那如何避免和用户冲突呢？
+                // TODO 这里之后可以改进下。
+            } else if (tag === WorkTag.HostText) {
+                isHidden
+                    ? hideTextInstance(stateNode)
+                    : unhideTextInstance(stateNode, memoizedProps.content);
+                // 问：如果 text fiber 本身有 Update，这里的 unhideTextInstance 
+                // 会不会和之后处理 Update 时冲突？
+                // 答：不会，二者都是取的 memoizedProps.content，后者就是最新的值，
+                // performUnitOfWork 每调用一次 beginWork 之后，会把 pendingProps
+                // 赋值给 memoizedProps。
+            }
+        }
+    )
+}
+/**
+ * execute callback on all max real subtree's root，即：对所有的
+ * 以 host fiber 为根的最大子树的根节点(host fiber)执行 callback。
+ */
+function runCallbackOnAllMaxRealSubtreeRoots(
+    fiber: FiberNode,
+    callback: (hostSubtreeRoot: FiberNode) => void
+) {
+    let node = fiber;
+    /**
+     * 我也不知道怎么命名，反正是遇到第一个最大真实非严格子树的根节点时，把节点赋值给
+     * temp，当遍历到离开这个树时 temp 为 null。
+     */
+    let temp = null;
+    outer: do {
+        const { tag } = node;
+        if (tag === WorkTag.HostComponent) {
+            temp = node;
+            callback(temp);
+        } else if (tag === WorkTag.HostText) {
+            temp = node;
+            callback(temp);
+        } else if (
+            tag === WorkTag.Offscreen &&
+            node.pendingProps.mode === 'hidden' &&
+            node !== fiber
+        ) {
+            // 什么都不做
+        } else if (node.child !== null) {
+            node = node.child;
+            continue;
+        } else if (node.sibling !== null) {
+            node = node.sibling;
+            continue;
+        }
+
+        inner: while (true) { // 触底了，于是向上归，继续寻找其他可遍历的节点
+            if (node === fiber) break outer;
+            if (node.sibling !== null) { 
+                node = node.sibling;
+                break inner;
+            } else {
+                node = node.return as FiberNode;
+                if (node === temp) temp = null;
+            }
+        }
+    } while (true)
+}

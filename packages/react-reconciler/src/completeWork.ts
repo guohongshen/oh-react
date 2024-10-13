@@ -1,7 +1,7 @@
 import { Container, Instance, appendInitialChild, createInstance, createTextInstance } from "hostConfig";
 import { FiberNode } from "./fiber";
 import { WorkTag } from "./workTags";
-import { NoFlags, Ref, Update } from "./fiberFlags";
+import { NoFlags, Ref, Update, Visibility } from "./fiberFlags";
 import { popContextValue } from "./fiberContext";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
@@ -74,6 +74,28 @@ export function completeWork(wip: FiberNode) {
             popContextValue(wip.type._context)
             updateSubtreeFlags(wip);
             return null;
+        case WorkTag.Suspense:
+            // 下面这段逻辑不能写在 Offscreen，因为 Suspense 的 beginWork 有可能返回
+            // 的是 Fragment，那么 completeWork 就走不到 Offscreen，那例如就不能对其
+            // 子树的顶层 host 节点进行 "display:none" 操作了。
+            const offscreenFiber = wip.child as FiberNode;
+            const isHidden = offscreenFiber.pendingProps.mode === "hidden";
+            const currentOffscreenFiber = offscreenFiber.alternate;
+
+            if (currentOffscreenFiber !== null) {
+                // update
+                const wasHidden = currentOffscreenFiber.pendingProps.mode === 'hidden';
+                if (isHidden !== wasHidden) {
+                    offscreenFiber.flags |= Visibility;
+                    updateSubtreeFlags(wip);
+                }
+            } else if (isHidden) { // mount, "hidden"
+                offscreenFiber.flags |= Visibility; // QUESTION 我感觉这里不太需要加这个
+                // 因为 mount 且 hidden 的话，就没有 children，就更不需要对 host 节
+                // 点进行 display 处理了。
+                updateSubtreeFlags(wip);
+            }
+            updateSubtreeFlags(wip);
         default:
             if (__DEV__) {
                 console.warn('未处理的 completeWork 情况');

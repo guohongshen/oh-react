@@ -1,6 +1,7 @@
 import { FiberNode } from "react-reconciler/src/fiber";
 import { HostComponent, HostText } from "react-reconciler/src/workTags";
 import { injectProps, DOMElement } from "./SyntheticEvent";
+import { TextInstance } from "react-noop-renderer/src/hostConfig";
 
 /** HostRoot */
 export type Container = Element;
@@ -68,3 +69,21 @@ export const scheduleMicroTask = typeof queueMicrotask === 'function'
     : typeof Promise === 'function'
         ? (callback: (...args: any) => void) => Promise.resolve(null).then(callback)
         : setTimeout;
+
+export function hideInstance(instance: Instance) {
+    const style = (instance as HTMLElement).style;
+    style.setProperty('display', 'none', 'important');
+}
+
+export function unhideInstance(instance: Instance) {
+    const style = (instance as HTMLElement).style;
+    style.display = '';
+}
+
+export function hideTextInstance(instance: Instance) {
+    instance.nodeValue = '';
+}
+
+export function unhideTextInstance(instance: Instance, text: string) {
+    instance.nodeValue = text;
+}
