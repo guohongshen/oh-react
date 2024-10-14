@@ -25,7 +25,7 @@ export function flushSyncCallbacks() {
             });
         } catch (e) {
             if (__DEV__) {
-                console.error('flushSyncCallbacks 报错');
+                console.error('flushSyncCallbacks 报错', e);
             }
         } finally {
             syncQueue = null;

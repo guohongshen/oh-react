@@ -49,7 +49,6 @@ function commitDeletion(childToDelete: FiberNode, root: FiberRootNode) {
      * 我也不知道怎么命名，反正是遇到第一个最大真实非严格子树的根节点时，把节点赋值给 temp，当遍历到离开这个树时 temp 为 null
      */
     let temp = null;
-    debugger;
     outer: do {
         // 做 unmount 处理：
         switch (node.tag) {
@@ -72,7 +71,7 @@ function commitDeletion(childToDelete: FiberNode, root: FiberRootNode) {
                 break;
             default:
                 if (__DEV__) {
-                    console.warn('未处理的 unmount 类型', node);
+                    console.warn('未处理的 unmount 类型', node.tagName);
                 }
                 break;
         }
@@ -485,41 +484,35 @@ function runCallbackOnAllMaxRealSubtreeRoots(
     callback: (hostSubtreeRoot: FiberNode) => void
 ) {
     let node = fiber;
-    /**
-     * 我也不知道怎么命名，反正是遇到第一个最大真实非严格子树的根节点时，把节点赋值给
-     * temp，当遍历到离开这个树时 temp 为 null。
-     */
-    let temp = null;
     outer: do {
         const { tag } = node;
         if (tag === WorkTag.HostComponent) {
-            temp = node;
-            callback(temp);
+            callback(node);
         } else if (tag === WorkTag.HostText) {
-            temp = node;
-            callback(temp);
+            callback(node);
         } else if (
             tag === WorkTag.Offscreen &&
             node.pendingProps.mode === 'hidden' &&
             node !== fiber
         ) {
-            // 什么都不做
+            // 这是 Suspense 内部嵌套的 Suspense，不作干涉
         } else if (node.child !== null) {
             node = node.child;
             continue;
-        } else if (node.sibling !== null) {
-            node = node.sibling;
-            continue;
         }
 
-        inner: while (true) { // 触底了，于是向上归，继续寻找其他可遍历的节点
-            if (node === fiber) break outer;
-            if (node.sibling !== null) { 
+        // 向上归，继续寻找其他可遍历的节点
+        inner: while (true) {
+            // debugger;
+            (window as any).ghs = [node, fiber];
+            if (node === fiber) {
+                break outer;
+            }
+            if (node.sibling !== null) {
                 node = node.sibling;
                 break inner;
             } else {
                 node = node.return as FiberNode;
-                if (node === temp) temp = null;
             }
         }
     } while (true)

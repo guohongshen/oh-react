@@ -373,7 +373,7 @@ function createFiberFromElement(element: ReactElement): FiberNode {
     } else if (type === REACT_SUSPENSE_TYPE) {
         fiberTag = WorkTag.Suspense;
     } else if (typeof type !== 'function' && __DEV__) {
-        console.warn('未定义的 type 类型', type);
+        console.warn('未定义的 type 类型', type, element);
     }
     const fiber = new FiberNode(fiberTag, props, key);
     fiber.type = type;

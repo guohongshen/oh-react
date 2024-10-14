@@ -50,8 +50,6 @@ type ThenableStatus = 'untracked' | 'fulfilled' | 'rejected' | 'pending';
 
 export interface Thenable<T, Result = void, Err = any> extends OriginalThenable<T, Result, Err> {
     status: ThenableStatus;
-    value?: T;
-    reason?: Err;
 }
 
 export interface UntrackedThenable<T, Result, Err> extends Thenable<T, Result, Err> {

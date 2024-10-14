@@ -4,11 +4,15 @@ import { beginWork } from "./beginWork";
 import { commitHookEffectListCreate, commitHookEffectListDestroy, commitHookEffectListUnmount, commitLayoutEffects, commitMutationEffects } from "./commitWork";
 import { completeWork } from "./completeWork";
 import { FiberNode, FiberRootNode, PendingPassiveEffects, createWorkInProgress } from "./fiber";
-import { EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask } from "./fiberFlags";
+import { EffectMask, EffectMaskDuringMutation, NoFlags, PassiveEffect, PassiveMask } from "./fiberFlags";
 import { Lane, NoLane, SyncLane, getHighestPriorityLane, lanesToSchedulerPriority, markFiberFinished, mergeLanes } from "./fiberLanes";
 import { flushSyncCallbacks, addCallbackToSyncQueue } from "./syncTaskQueue";
 import { WorkTag } from "./workTags";
 import { HookHasEffect, Passive } from "./hookEffectTag";
+import { SuspenseException, getUnnamedThenable } from "./thenbale";
+import { resetHooksWhenUnwind } from "./fiberHooks";
+import { throwException } from "./throw";
+import { unwindWork } from "./unwindWork";
 
 let workInProgress: FiberNode | null;
 /**
@@ -16,6 +20,14 @@ let workInProgress: FiberNode | null;
  */
 let wipRootRenderLane: Lane = NoLane;
 let rootDoesHasPassiveEffect: boolean = false;
+
+// 下面这几个是和 Suspense 有关的：
+enum SuspendedReason {
+    NotSuspended = 0,
+    onData = 1
+}
+let wipSuspendedReason: SuspendedReason = SuspendedReason.NotSuspended;
+let wipThrownValue: any = null;
 
 enum RootExitStatus {
     RootInCompleted = 1,
@@ -100,12 +112,6 @@ export function scheduleUpdateOnFiber(fiber: FiberNode, lane: Lane) {
     
     const root /* fiberRootNode */ = markUpdateFromFiberToRoot(fiber);
 
-    function markRootUpdate(
-        root: FiberRootNode,
-        lane: Lane
-    ) {
-        root.pendingLanes = mergeLanes(root.pendingLanes, lane);
-    }
     markRootUpdate(root, lane);
     
     ensureRootIsScheduled(root);
@@ -252,11 +258,23 @@ function renderRoot(
         prepareRefreshStack(root, lane);
     }
 
+    let count = 0;
+
     // 构建递归流程
     // 记住：协调过程整体是递归的，函数执行并不是递归的，因为你那样的话栈太深了，所以实
     // 际的实现是迭代。
     do {
         try {
+            if (
+                wipSuspendedReason !== SuspendedReason.NotSuspended &&
+                workInProgress !== null
+            ) {
+                // unwind
+                const thrownValue = wipThrownValue;
+                wipSuspendedReason = SuspendedReason.NotSuspended;
+                wipThrownValue = null;
+                throwAndUnwindWorkLoop(root, workInProgress, thrownValue, lane);
+            }
             if (shouldTimeSlice) {
                 concurrentWorkLoop();
             } else {
@@ -269,7 +287,13 @@ function renderRoot(
                 
                 console.log('workLoop 发生错误');
             }
-            workInProgress = null;
+            handleThrown(root, err);
+            ++count;
+            if (count > 20) {
+                console.log('workLoop count 大于 20');
+                
+                break;
+            }
         }
     } while (true);
 
@@ -414,4 +438,63 @@ function flushPassiveEffects(
     // flushSyncCallbacks(); // // 我觉得这一行代码应该删掉，这是只有同步更新时写的代码
 
     return didFlushPassiveEffect;
+}
+
+/**
+ * render 过程中抛出的错误都在这里处理
+ * @param root 
+ * @param thrownValue 
+ */
+function handleThrown(root: FiberRootNode, thrownValue: any) {
+    // TODO Error Boundary
+
+    if (thrownValue === SuspenseException) {
+        thrownValue = getUnnamedThenable();
+        wipSuspendedReason = SuspendedReason.onData;
+    }
+    wipThrownValue = thrownValue;
+}
+
+function throwAndUnwindWorkLoop(
+    root: FiberRootNode,
+    unitOfWork: FiberNode,
+    thrownValue: any,
+    lane: Lane
+) {
+    // 重置 FC 全局变量
+    resetHooksWhenUnwind();
+
+    // 请求返回后重新触发更新
+    throwException(root, thrownValue, lane);
+
+    // unwind
+    unwindWorkLoop(unitOfWork);
+}
+
+function unwindWorkLoop(unitOfWork: FiberNode) {
+    let incompleteWork: FiberNode | null = unitOfWork;
+
+    do {
+        const next = unwindWork(incompleteWork);
+        if (next !== null) {
+            workInProgress = next;
+            return;
+        } 
+        const returnFiber = incompleteWork.return as FiberNode;
+        if (returnFiber !== null) {
+            returnFiber.deletions = null;
+        }
+        incompleteWork = returnFiber;
+    } while (incompleteWork !== null)
+    
+    // 使用了 use，抛出了 data，但是没有定义 suspense
+    // TODO 到了 root
+    workInProgress = null;
+}
+
+export function markRootUpdate(
+    root: FiberRootNode,
+    lane: Lane
+) {
+    root.pendingLanes = mergeLanes(root.pendingLanes, lane);
 }

@@ -5,8 +5,9 @@ import { WorkTag } from "./workTags";
 import { mountChildFibers, reconcileChildFibers } from "./childFibers";
 import { renderWithHooks } from "./fiberHooks";
 import { Lane } from "./fiberLanes";
-import { ChildDeletion, Placement, Ref } from "./fiberFlags";
+import { ChildDeletion, DidCapture, NoFlags, Placement, Ref } from "./fiberFlags";
 import { pushContextValue } from "./fiberContext";
+import { pushSuspenseFiber } from "./SuspenseStack";
 
 // 递归中的递阶段
 export function beginWork(wip: FiberNode, renderLane: Lane) {
@@ -27,9 +28,10 @@ export function beginWork(wip: FiberNode, renderLane: Lane) {
         case WorkTag.Suspense:
             return beginWorkOnSuspense(wip);
         case WorkTag.Offscreen:
+            return beginWorkOnOffscreen(wip);
         default:
             if (__DEV__) {
-                console.warn('beginWork 未实现的类型');
+                console.warn('beginWork 未实现的类型', wip);
             }
             return null;
     }
@@ -108,13 +110,16 @@ function beginWorkOnSuspense(wip: FiberNode) {
     const nextProps = wip.pendingProps;
 
     let showFallback = false;
-    const isSuspended = false;
+    const isSuspended = (wip.flags & DidCapture) !== NoFlags;
 
     if (isSuspended) {
         showFallback = true;
+        wip.flags &= ~DidCapture;
     }
     const newOffscreenChildren = nextProps.children;
     const newFragmentChildren = nextProps.fallback;
+
+    pushSuspenseFiber(wip);
 
     if (current === null) { // <Suspense/> mount
         if (showFallback) {
@@ -148,12 +153,12 @@ function beginWorkOnSuspense(wip: FiberNode) {
     }
     function mountWithFallback(
         wip: FiberNode,
-        primaryChildren: any,
+        offscreenChildren: any,
         fallbackChildren: any
     ) {
         const offscreenProps: OffscreenProps = {
             mode: 'hidden',
-            children: primaryChildren
+            children: offscreenChildren
         }
         const offscreenFiber = createFiberFromOffscreen(offscreenProps);
         const fragmentFiber = createFiberFromFragment(fallbackChildren, null);
@@ -168,11 +173,11 @@ function beginWorkOnSuspense(wip: FiberNode) {
     }
     function mountWithOffscreen(
         wip: FiberNode,
-        primaryChildren: any
+        offscreenChildren: any
     ) {
         const offscreenProps: OffscreenProps = {
             mode: 'visible',
-            children: primaryChildren
+            children: offscreenChildren
         }
         const offscreenFiber = createFiberFromOffscreen(offscreenProps);
         wip.child = offscreenFiber;
@@ -220,6 +225,17 @@ function beginWorkOnSuspense(wip: FiberNode) {
         offscreenFiber.return = fragmentFiber.return = suspenseWip;
         offscreenFiber.sibling = fragmentFiber;
         suspenseWip.child = offscreenFiber;
+
+        // QUESTION kasong 这里是不是应该对子节点的 return 更新下，不然之后 hideOrUnhide 
+        // 的时候会回归不到 Offscreen
+        if (currentOffscreenFiber.child) {
+            let curOffscreenChildFiber: FiberNode | null = currentOffscreenFiber.child;
+            while (curOffscreenChildFiber !== null) {
+                curOffscreenChildFiber.return = offscreenFiber;
+                curOffscreenChildFiber = curOffscreenChildFiber.sibling;
+            }
+            currentOffscreenFiber.child = null;
+        }
 
         return fragmentFiber;
     }

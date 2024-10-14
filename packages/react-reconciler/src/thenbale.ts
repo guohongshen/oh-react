@@ -5,7 +5,7 @@ export const SuspenseException = new Error('Suspense trackUsedThenable throw err
 let unnamedThenable: Thenable<any> | null = null;
 export function getUnnamedThenable(): Thenable<any> {
     if (unnamedThenable === null) {
-        throw new Error('getUnnamedThenable 调用时 unnamedThenable 不存在，应该存在的')；
+        throw new Error('getUnnamedThenable 调用时 unnamedThenable 不存在，应该存在的');
     }
     const thenable = unnamedThenable;
     unnamedThenable = null;
@@ -17,9 +17,9 @@ function noop() {}
 export function trackUsedThenable<T>(thenable: Thenable<T>) {
     switch (thenable.status) {
         case 'fulfilled':
-            return thenable.value;
+            return (thenable as FulfilledThenable<T, void, any>).value;
         case 'rejected':
-            throw thenable.reason;
+            throw (thenable as RejectedThenable<T, void, any>).reason;
         default:
             if (typeof thenable.status === 'string') {
                 thenable.then(noop, noop);
@@ -50,7 +50,7 @@ export function trackUsedThenable<T>(thenable: Thenable<T>) {
                 )
             }
     }
-    thenable = thenable;
+    unnamedThenable = thenable;
     throw SuspenseException;
 }
 

@@ -3,6 +3,7 @@ import { FiberNode } from "./fiber";
 import { WorkTag } from "./workTags";
 import { NoFlags, Ref, Update, Visibility } from "./fiberFlags";
 import { popContextValue } from "./fiberContext";
+import { popSuspenseFiber } from "./SuspenseStack";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
 export function markUpdate(fiber: FiberNode) {
@@ -96,9 +97,13 @@ export function completeWork(wip: FiberNode) {
                 updateSubtreeFlags(wip);
             }
             updateSubtreeFlags(wip);
+            popSuspenseFiber();
+        case WorkTag.Offscreen:
+            updateSubtreeFlags(wip);
+            return null;
         default:
             if (__DEV__) {
-                console.warn('未处理的 completeWork 情况');
+                console.warn('未处理的 completeWork 情况', );
             }
             return null;
     }

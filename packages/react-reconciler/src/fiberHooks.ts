@@ -269,17 +269,25 @@ function readContext<T>(context: ReactContext<T>): T {
 
 function use<T>(usable: Usable<T>): T {
     if (usable !== null && typeof usable === 'object') {
-        if (typeof (usable as Thenable<T>).then === 'function') {
+        if ((typeof (usable as Thenable<T>).then) === 'function') {
             // thenable
             const thenable = usable as Thenable<T>;
-            trackUsedThenable(thenable);
+            return trackUsedThenable(thenable);
         } else if ((usable as ReactContext<T>).$$typeof === REACT_CONTEXT_TYPE) {
             // context
             const context = usable as ReactContext<T>;
             return readContext(context);
         }
     }
+    console.log('use 参数类型不对：', usable);
+    
     throw new Error('use 参数类型不对：' + usable);
+}
+
+export function resetHooksWhenUnwind() {
+    currentlyRenderingFiber = null;
+    currentHook = null;
+    workInProgressHook = null;
 }
 
 /**

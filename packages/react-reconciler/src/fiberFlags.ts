@@ -5,6 +5,8 @@ export const Placement = 0b0000001;
 export const Update = 0b0000010;
 export const ChildDeletion = 0b0000100;
 export const Visibility = 0b0100000;
+export const ShouldCapture = 0b1000000;
+export const DidCapture = 0b10000000;
 /**
  * 对于 fiber，新增 PassiveEffect，代表「当前 fiber 本次更新存在副作用」
 */

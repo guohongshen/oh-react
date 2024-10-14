@@ -1,5 +1,5 @@
 import { FiberNode } from "react-reconciler/src/fiber";
-import { HostComponent, HostText } from "react-reconciler/src/workTags";
+import { WorkTag } from "react-reconciler/src/workTags";
 import { injectProps, DOMElement } from "./SyntheticEvent";
 import { TextInstance } from "react-noop-renderer/src/hostConfig";
 
@@ -40,10 +40,10 @@ export function insertBefore(
 
 export function commitUpdate(fiber: FiberNode) {
     switch (fiber.tag) {
-        case HostText:
+        case WorkTag.HostText:
             const text = fiber.memoizedProps.content;
             return commitTextUpdate(fiber.stateNode, text);
-        case HostComponent:
+        case WorkTag.HostComponent:
             return injectProps(fiber.stateNode, fiber.memoizedProps);
         default:
             if (__DEV__) {

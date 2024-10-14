@@ -1,4 +1,4 @@
-import { Props, Key } from "shared/ReactTypes";
+import { Props, Key, Wakeable } from "shared/ReactTypes";
 import { WorkTag, WorkTagToName } from './workTags';
 import { Flags, NoFlags } from "./fiberFlags";
 import { Container } from "hostConfig";
@@ -95,6 +95,9 @@ export class FiberRootNode {
      */
     currentPriority: Lane;
 
+    // WeakMap{ promise: }
+    pingCache: WeakMap<Wakeable<any>, Set<Lane>> | null;
+
     constructor (container: Container, hostRootFiber: FiberNode) {
         /**
          * FiberRootNode
@@ -120,6 +123,8 @@ export class FiberRootNode {
 
         this.schedulerTask = null;
         this.currentPriority = NoLane;
+
+        this.pingCache = null;
     }
 }
 
