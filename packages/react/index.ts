@@ -2,7 +2,7 @@ import { Dispatcher, resolveDispatcher } from "./src/currentDispatcher";
 import currentDispatcher from "./src/currentDispatcher";
 import { jsxDEV, jsx, isValidElement as _isValidElement } from "./src/jsx";
 import ReactCurrentBatchConfig from "./src/currentBatchConfig";
-import { ReactContext } from "shared/ReactTypes";
+import { ReactContext, Usable } from "shared/ReactTypes";
 export * from './src/context';
 export {
     REACT_FRAGMENT_TYPE as Fragment,
@@ -32,6 +32,11 @@ export const useRef: Dispatcher['useRef'] = <T>(initialValue: T) => {
 export const useContext: Dispatcher['useContext'] = <T>(context: ReactContext<T>) => {
     const dispatcher = resolveDispatcher();
     return dispatcher.useContext(context);
+}
+
+export const use: Dispatcher['use'] = <T>(usable: Usable<T>) => {
+    const dispatcher = resolveDispatcher();
+    return dispatcher.use(usable);
 }
 
 /** 数据共享层 */

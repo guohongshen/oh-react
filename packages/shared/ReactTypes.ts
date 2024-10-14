@@ -33,3 +33,48 @@ export type ReactProvider<T> = {
     $$typeof: symbol | number;
     _context: ReactContext<T> | null;
 }
+
+export type Usable<T> = Thenable<T> | ReactContext<T>;
+
+/**
+ * 通用的 Thenable 定义
+ */
+export type OriginalThenable<T, Result, Err> = {
+    then(
+        onFulfilled: (value: T) => Result,
+        onRejected: (err: Err) => Result
+    ): void | Wakeable<Result>
+}
+
+type ThenableStatus = 'untracked' | 'fulfilled' | 'rejected' | 'pending';
+
+export interface Thenable<T, Result = void, Err = any> extends OriginalThenable<T, Result, Err> {
+    status: ThenableStatus;
+    value?: T;
+    reason?: Err;
+}
+
+export interface UntrackedThenable<T, Result, Err> extends Thenable<T, Result, Err> {
+    status: 'untracked';
+}
+
+export interface FulfilledThenable<T, Result, Err> extends Thenable<T, Result, Err> {
+    status: 'fulfilled';
+    value: T;
+}
+
+export interface RejectedThenable<T, Result, Err> extends Thenable<T, Result, Err> {
+    status: 'rejected';
+    reason: Err;
+}
+
+export interface PendingThenable<T, Result, Err> extends Thenable<T, Result, Err> {
+    status: 'pending';
+}
+
+export type Wakeable<Result> = {
+    then(
+        onFulfilled: () => Result,
+        onRejected: () => Result
+    ): void | Wakeable<Result>
+}

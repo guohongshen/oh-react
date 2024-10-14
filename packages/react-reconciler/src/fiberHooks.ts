@@ -2,12 +2,14 @@ import internals from "shared/internals";
 import { FiberNode } from "./fiber";
 import { Dispatch, Dispatcher } from "react/src/currentDispatcher";
 import { Update, UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
-import { Action, ReactContext } from "shared/ReactTypes";
+import { Action, ReactContext, Thenable, Usable } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
 import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
 import { Flags, PassiveEffect } from "./fiberFlags";
 import { HookEffectTag, HookHasEffect, Passive } from "./hookEffectTag";
 import currentBatchConfig from "react/src/currentBatchConfig";
+import { REACT_CONTEXT_TYPE } from "shared/ReactSymbols";
+import { trackUsedThenable } from "./thenbale";
 
 let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
@@ -80,7 +82,8 @@ const HooksDispatcherOnMount: Dispatcher = {
     useEffect: mountEffect,
     useTransition: mountTransition,
     useRef: mountRef,
-    useContext: readContext
+    useContext: readContext,
+    use: use
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
@@ -88,7 +91,8 @@ const HooksDispatcherOnUpdate: Dispatcher = {
     useEffect: updateEffect,
     useTransition: updateTransition,
     useRef: updateRef,
-    useContext: readContext
+    useContext: readContext,
+    use: use
 };
 
 function mountState<State>(
@@ -261,6 +265,21 @@ function readContext<T>(context: ReactContext<T>): T {
     }
     const value = context._currentValue;
     return value;
+}
+
+function use<T>(usable: Usable<T>): T {
+    if (usable !== null && typeof usable === 'object') {
+        if (typeof (usable as Thenable<T>).then === 'function') {
+            // thenable
+            const thenable = usable as Thenable<T>;
+            trackUsedThenable(thenable);
+        } else if ((usable as ReactContext<T>).$$typeof === REACT_CONTEXT_TYPE) {
+            // context
+            const context = usable as ReactContext<T>;
+            return readContext(context);
+        }
+    }
+    throw new Error('use 参数类型不对：' + usable);
 }
 
 /**
