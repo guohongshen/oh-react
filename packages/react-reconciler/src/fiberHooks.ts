@@ -9,7 +9,7 @@ import { Flags, PassiveEffect } from "./fiberFlags";
 import { HookEffectTag, HookHasEffect, Passive } from "./hookEffectTag";
 import currentBatchConfig from "react/src/currentBatchConfig";
 import { REACT_CONTEXT_TYPE } from "shared/ReactSymbols";
-import { trackUsedThenable } from "./thenbale";
+import { getThenableValueOrThrowReasonOrTrackThenable } from "./thenbale";
 
 let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
@@ -272,15 +272,13 @@ function use<T>(usable: Usable<T>): T {
         if ((typeof (usable as Thenable<T>).then) === 'function') {
             // thenable
             const thenable = usable as Thenable<T>;
-            return trackUsedThenable(thenable);
+            return getThenableValueOrThrowReasonOrTrackThenable(thenable);
         } else if ((usable as ReactContext<T>).$$typeof === REACT_CONTEXT_TYPE) {
             // context
             const context = usable as ReactContext<T>;
             return readContext(context);
         }
     }
-    console.log('use 参数类型不对：', usable);
-    
     throw new Error('use 参数类型不对：' + usable);
 }
 

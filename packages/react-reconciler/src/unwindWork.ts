@@ -4,7 +4,6 @@ import { popContextValue } from "./fiberContext";
 import { DidCapture, NoFlags, ShouldCapture } from "./fiberFlags";
 import { WorkTag } from "./workTags";
 
-
 export function unwindWork(wip: FiberNode) {
     const flags = wip.flags;
 

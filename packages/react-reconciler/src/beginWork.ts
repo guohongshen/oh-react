@@ -114,7 +114,7 @@ function beginWorkOnSuspense(wip: FiberNode) {
 
     if (isSuspended) {
         showFallback = true;
-        wip.flags &= ~DidCapture;
+        wip.flags &= ~DidCapture; // QUESTION: 为什么要去掉 DidCapture 呢？思考详见 ./thenable.ts
     }
     const newOffscreenChildren = nextProps.children;
     const newFragmentChildren = nextProps.fallback;

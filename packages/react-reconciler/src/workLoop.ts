@@ -9,10 +9,10 @@ import { Lane, NoLane, SyncLane, getHighestPriorityLane, lanesToSchedulerPriorit
 import { flushSyncCallbacks, addCallbackToSyncQueue } from "./syncTaskQueue";
 import { WorkTag } from "./workTags";
 import { HookHasEffect, Passive } from "./hookEffectTag";
-import { SuspenseException, getUnnamedThenable } from "./thenbale";
+import { SuspenseException, getSuspendedThenable } from "./thenbale";
 import { resetHooksWhenUnwind } from "./fiberHooks";
 import { throwException } from "./throw";
-import { unwindWork } from "./unwindWork";
+import { unwindWork as unwindUnitOfWork } from "./unwindWork";
 
 let workInProgress: FiberNode | null;
 /**
@@ -283,9 +283,7 @@ function renderRoot(
             break;
         } catch (err) {
             if (__DEV__) {
-                console.log('err: ', err);
-                
-                console.log('workLoop 发生错误');
+                console.log('workLoop 发生错误', err);
             }
             handleThrown(root, err);
             ++count;
@@ -449,10 +447,10 @@ function handleThrown(root: FiberRootNode, thrownValue: any) {
     // TODO Error Boundary
 
     if (thrownValue === SuspenseException) {
-        thrownValue = getUnnamedThenable();
+        thrownValue = getSuspendedThenable();
         wipSuspendedReason = SuspendedReason.onData;
     }
-    wipThrownValue = thrownValue;
+    wipThrownValue = thrownValue; // 转存，workLoop 会读
 }
 
 function throwAndUnwindWorkLoop(
@@ -475,7 +473,7 @@ function unwindWorkLoop(unitOfWork: FiberNode) {
     let incompleteWork: FiberNode | null = unitOfWork;
 
     do {
-        const next = unwindWork(incompleteWork);
+        const next = unwindUnitOfWork(incompleteWork);
         if (next !== null) {
             workInProgress = next;
             return;
@@ -487,8 +485,8 @@ function unwindWorkLoop(unitOfWork: FiberNode) {
         incompleteWork = returnFiber;
     } while (incompleteWork !== null)
     
-    // 使用了 use，抛出了 data，但是没有定义 suspense
-    // TODO 到了 root
+    // 使用了 use，抛出了 data，但是没有定义 suspense，于是就一直遍历到了 root
+    // TODO 
     workInProgress = null;
 }
 
