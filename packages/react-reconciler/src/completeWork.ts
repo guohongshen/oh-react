@@ -4,6 +4,7 @@ import { WorkTag } from "./workTags";
 import { NoFlags, Ref, Update, Visibility } from "./fiberFlags";
 import { popContextValue } from "./fiberContext";
 import { popSuspenseFiber } from "./SuspenseStack";
+import { NoLanes } from "./fiberLanes";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
 export function markUpdate(fiber: FiberNode) {
@@ -45,7 +46,7 @@ export function completeWork(wip: FiberNode) {
                     markRef(wip);
                 }
             }
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         case WorkTag.HostText:
             if (current !== null && wip.stateNode) {
@@ -60,20 +61,20 @@ export function completeWork(wip: FiberNode) {
                 const instance = createTextInstance(newProps.content);
                 wip.stateNode = instance;
             }
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         case WorkTag.HostRoot:
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         case WorkTag.FunctionComponent:
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         case WorkTag.Fragment:
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         case WorkTag.ContextProvider:
             popContextValue(wip.type._context)
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         case WorkTag.Suspense:
             // 下面这段逻辑不能写在 Offscreen，因为 Suspense 的 beginWork 有可能返回
@@ -88,18 +89,19 @@ export function completeWork(wip: FiberNode) {
                 const wasHidden = currentOffscreenFiber.pendingProps.mode === 'hidden';
                 if (isHidden !== wasHidden) {
                     offscreenFiber.flags |= Visibility;
-                    updateSubtreeFlags(wip);
+                    updateSubtreeFlagsAndChildLanes(wip);
                 }
             } else if (isHidden) { // mount, "hidden"
                 offscreenFiber.flags |= Visibility; // QUESTION 我感觉这里不太需要加这个
                 // 因为 mount 且 hidden 的话，就没有 children，就更不需要对 host 节
                 // 点进行 display 处理了。
-                updateSubtreeFlags(wip);
+                updateSubtreeFlagsAndChildLanes(wip);
             }
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
+
             popSuspenseFiber();
         case WorkTag.Offscreen:
-            updateSubtreeFlags(wip);
+            updateSubtreeFlagsAndChildLanes(wip);
             return null;
         default:
             if (__DEV__) {
@@ -149,22 +151,29 @@ function appendAllRealSubtreeRootDOMNodes(parent: Container | Instance, wip: Fib
 }
 
 /**
- * 将 wip.subtreeFlags 设置为所有子节点的 subtreeFlags 以及 flags 的合并，也即所有后
+ * 做两件事：
+ * <1> 将 wip.childLanes 设置为所有子节点的 childLanes 和 lanes 的合并；
+ * <2> 将 wip.subtreeFlags 设置为所有子节点的 subtreeFlags 和 flags 的合并，也即所有后
  * 代节点的 flags 的合并。通俗理解为：flags 冒泡，因为程序操作上是对子节点进行冒泡，所
  * 以每次执行 completeWork 时都要调用一次冒泡。原名：bubbleProperties
  * @param wip 
  */
-function updateSubtreeFlags(wip: FiberNode) {
+function updateSubtreeFlagsAndChildLanes(wip: FiberNode) {
     let subtreeFlags = NoFlags;
     let child = wip.child;
+    let childLanes = NoLanes;
 
     while (child !== null) {
         subtreeFlags |= child.subtreeFlags;
         subtreeFlags |= child.flags;
+
+        childLanes |= child.lanes;
+        childLanes |= child.childLanes;
 
         child.return = wip;
         child = child.sibling;
     }
 
     wip.subtreeFlags |= subtreeFlags;
+    wip.childLanes = childLanes;
 }

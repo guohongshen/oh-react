@@ -4,14 +4,17 @@ import { UpdateQueue, processUpdateQueue } from "./updateQueue";
 import { WorkTag } from "./workTags";
 import { mountChildFibers, reconcileChildFibers } from "./childFibers";
 import { renderWithHooks } from "./fiberHooks";
-import { Lane } from "./fiberLanes";
+import { Lane, NoLane, NoLanes } from "./fiberLanes";
 import { ChildDeletion, DidCapture, NoFlags, Placement, Ref } from "./fiberFlags";
 import { pushContextValue } from "./fiberContext";
 import { pushSuspenseFiber } from "./SuspenseStack";
 
 // 递归中的递阶段
 export function beginWork(wip: FiberNode, renderLane: Lane) {
-    // 比较，返回子 fiberNode
+    // TODO bailout 策略：
+
+    wip.lanes = NoLanes; // 先置空，后面把跳过的更新的 lane 再加进来就好了
+
     switch (wip.tag) {
         case WorkTag.HostRoot:
             return beginWorkOnHostRoot(wip, renderLane);

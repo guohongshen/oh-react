@@ -1,6 +1,7 @@
 import { Action } from "shared/ReactTypes";
 import { Dispatch } from "react/src/currentDispatcher";
-import { Lane, NoLane, isSubsetOfLanes } from "./fiberLanes";
+import { Lane, NoLane, isSubsetOfLanes, mergeLanes } from "./fiberLanes";
+import { FiberNode } from "./fiber";
 
 export interface Update<State> {
     action: Action<State>;
@@ -39,8 +40,10 @@ export function createUpdateQueue<State>(): UpdateQueue<State> {
 }
 
 export function enqueueUpdate<State>(
+    fiber: FiberNode,
     updateQueue: UpdateQueue<State>,
-    update: Update<State>
+    update: Update<State>,
+    lane: Lane
 ) {
     const pending = updateQueue.shared.pending;
     if (pending === null) {
@@ -50,6 +53,12 @@ export function enqueueUpdate<State>(
         pending.next = update;
     }
     updateQueue.shared.pending = update;
+
+    fiber.lanes = mergeLanes(fiber.lanes, lane);
+    const alternate = fiber.alternate;
+    if (alternate !== null) {
+        alternate.lanes = mergeLanes(alternate.lanes, lane); // 多存一份数据，重置的时候拿 QUESTION 什么叫重置时候拿？
+    }
 }
 
 /**
@@ -61,7 +70,8 @@ export function enqueueUpdate<State>(
 export function processUpdateQueue<State>(
     baseState: State,
     updateQueue: Update<State> | null,
-    renderLane: Lane
+    renderLane: Lane,
+    onSkipUpdate?: <State>(update: Update<State>) => void
 ): {
     baseState: State,
     memoizedState: State,
@@ -90,6 +100,7 @@ export function processUpdateQueue<State>(
                     pending.action,
                     pending.lane
                 );
+                onSkipUpdate?.(clone);
                 if (newBaseQueueLast === null) {
                     newBaseQueueFirst = clone;
                     newBaseQueueLast = clone;

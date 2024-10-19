@@ -110,7 +110,7 @@ export function ensureRootIsScheduled(root: FiberRootNode) {
 export function scheduleUpdateOnFiber(fiber: FiberNode, lane: Lane) {
     // TODO: 调度功能
     
-    const root /* fiberRootNode */ = markUpdateFromFiberToRoot(fiber);
+    const root /* fiberRootNode */ = markUpdateLaneFromFiberToRoot(fiber, lane);
 
     markRootUpdate(root, lane);
     
@@ -118,18 +118,28 @@ export function scheduleUpdateOnFiber(fiber: FiberNode, lane: Lane) {
 }
 
 /**
- * 返回 FiberRootNode，除此之外什么也不做。
- * QUESTION: fiberRootNode 不应该只有一个吗，那存在一个全局变量里不就好了，为什么还要
- * 往上查找。
+ * 更新从 fiber.parent 直到 hostRootFiber 的 childLanes，返回 fiberRootNode。
  * @param fiber 
  * @returns 
  */
-export function markUpdateFromFiberToRoot(
-    fiber: FiberNode
+export function markUpdateLaneFromFiberToRoot(
+    fiber: FiberNode,
+    lane: Lane
 ) {
     let node = fiber;
     let parent = node.return;
     while (parent !== null) {
+        parent.childLanes = mergeLanes(
+            parent.childLanes,
+            lane
+        );
+        const alternate = parent.alternate;
+        if (alternate !== null) {
+            alternate.childLanes = mergeLanes(
+                alternate.childLanes,
+                lane
+            );
+        }
         node = parent;
         parent = node.return;
     }

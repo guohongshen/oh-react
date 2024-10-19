@@ -4,7 +4,7 @@ import { Dispatch, Dispatcher } from "react/src/currentDispatcher";
 import { Update, UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
 import { Action, ReactContext, Thenable, Usable } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
-import { Lane, NoLane, requestUpdateLane } from "./fiberLanes";
+import { Lane, NoLane, mergeLanes, requestUpdateLane } from "./fiberLanes";
 import { Flags, PassiveEffect } from "./fiberFlags";
 import { HookEffectTag, HookHasEffect, Passive } from "./hookEffectTag";
 import currentBatchConfig from "react/src/currentBatchConfig";
@@ -155,7 +155,16 @@ function updateState<State>(): [State, Dispatch<State>] {
             memoizedState: newMemoizedState,
             baseQueue: newBaseQueue,
             baseState: newBaseState
-        } = processUpdateQueue(baseState, baseQueue, renderLane);
+        } = processUpdateQueue(
+            baseState,
+            baseQueue,
+            renderLane,
+            update => {
+                const skippedLane = update.lane;
+                const fiber = currentlyRenderingFiber as FiberNode;
+                fiber.lanes = mergeLanes(fiber.lanes, skippedLane);
+            }
+        );
         hook.memoizedState = newMemoizedState;
         hook.baseState = newBaseState;
         hook.baseQueue = newBaseQueue;
@@ -382,7 +391,7 @@ function dispatchSetState<State>(
 ) {
     const lane = requestUpdateLane();
     const update = createUpdate(action, lane);
-    enqueueUpdate(updateQueue, update);
+    enqueueUpdate(fiber, updateQueue, update, lane);
     scheduleUpdateOnFiber(fiber, lane);
 }
 

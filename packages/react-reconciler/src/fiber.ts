@@ -34,6 +34,14 @@ export class FiberNode {
     sibling: FiberNode | null;
     child: FiberNode | null;
     index: number;
+    /**
+     * fiberNode 中「所有未执行的更新的lane」
+     */
+    lanes: Lanes;
+    /**
+     * 所有后代节点的 lanes 的合集，类比于 subtreeFlags
+     */
+    childLanes: Lanes;
 
     ref: any;
     constructor(tag: WorkTag, pendingProps: Props, key: Key) {
@@ -61,6 +69,10 @@ export class FiberNode {
         this.deletions = null;
         this.flags = NoFlags;
         this.subtreeFlags = NoFlags;
+
+        // bailout 相关
+        this.lanes = NoLanes;
+        this.childLanes = NoLanes;
     }
 }
 
@@ -166,6 +178,9 @@ export function createWorkInProgress(
     wip.memoizedProps = current.memoizedProps;
     wip.memoizedState = current.memoizedState;
     wip.ref = current.ref;
+
+    wip.lanes = current.lanes;
+    wip.childLanes = current.childLanes;
 
     return wip;
 }

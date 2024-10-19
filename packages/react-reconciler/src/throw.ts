@@ -1,7 +1,7 @@
 import { Wakeable } from "shared/ReactTypes";
 import { FiberRootNode } from "./fiber";
 import { Lane } from "./fiberLanes";
-import { ensureRootIsScheduled, markRootUpdate, markUpdateFromFiberToRoot } from "./workLoop";
+import { ensureRootIsScheduled, markRootUpdate } from "./workLoop";
 import { getNearestSuspenseFiber } from "./SuspenseStack";
 import { ShouldCapture } from "./fiberFlags";
 
