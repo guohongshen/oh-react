@@ -42,8 +42,10 @@ export function updateContainer(
             const lane = requestUpdateLane(); // 这里就能获取到同步优先级
             const update = createUpdate<ReactElement | null>(element, lane);
             enqueueUpdate(
+                hostRootFiber,
                 hostRootFiber.updateQueue as UpdateQueue<ReactElement | null>,
-                update
+                update,
+                lane
             );
         
             scheduleUpdateOnFiber(hostRootFiber, lane);
