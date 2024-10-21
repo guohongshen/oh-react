@@ -1,10 +1,10 @@
 import internals from "shared/internals";
 import { FiberNode } from "./fiber";
 import { Dispatch, Dispatcher } from "react/src/currentDispatcher";
-import { Update, UpdateQueue, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
+import { Update, UpdateQueue, basicStateReducer, createUpdate, createUpdateQueue, enqueueUpdate, processUpdateQueue } from "./updateQueue";
 import { Action, ReactContext, Thenable, Usable } from "shared/ReactTypes";
 import { scheduleUpdateOnFiber } from "./workLoop";
-import { Lane, NoLane, mergeLanes, removeLanes, requestUpdateLane } from "./fiberLanes";
+import { Lane, NoLane, NoLanes, mergeLanes, removeLanes, requestUpdateLane } from "./fiberLanes";
 import { Flags, PassiveEffect } from "./fiberFlags";
 import { HookEffectTag, HookHasEffect, Passive } from "./hookEffectTag";
 import currentBatchConfig from "react/src/currentBatchConfig";
@@ -47,6 +47,7 @@ export interface Effect {
 
 export interface FCUpdateQueue<State = any> extends UpdateQueue<State>{
     lastEffect: Effect | null;
+    lastRenderedState: State;
 }
 
 export function renderWithHooks(wip: FiberNode, lane: Lane) {
@@ -120,6 +121,7 @@ function mountState<State>(
         queue,
     );
     queue.dispatch = dispatch;
+    queue.lastRenderedState = memoizedState;
 
     return [memoizedState, queue.dispatch];
 }
@@ -178,6 +180,7 @@ function updateState<State>(): [State, Dispatch<State>] {
         hook.memoizedState = newMemoizedState;
         hook.baseState = newBaseState;
         hook.baseQueue = newBaseQueue;
+        queue.lastRenderedState = newMemoizedState;
     }
 
     return [hook.memoizedState, (queue.dispatch as Dispatch<State>)];
@@ -415,6 +418,35 @@ function dispatchSetState<State>(
 ) {
     const lane = requestUpdateLane();
     const update = createUpdate(action, lane);
+
+    // eagerState 策略
+    const current = fiber.alternate;
+    if (
+        fiber.lanes === NoLanes && 
+        (current === null || current.lanes === NoLanes)
+    ) {
+        // 当前产生的 update 是这个 fiber 的第一个 update
+        // 1. 更新前的状态
+        const currentState = updateQueue.lastRenderedState as State;
+        /**
+         * eager：急迫的、急切的。本来计算 state 是在 render 中发生，但在这里提前计算
+         * 了，所以叫急迫的。
+         */
+        const eagerState = basicStateReducer<State>(
+            currentState,
+            action
+        );
+        update.hasEagerState = true;
+        update.eagerState = eagerState;
+
+        if (Object.is(currentState, eagerState)) {
+            enqueueUpdate(fiber, updateQueue, update, NoLane);
+            if (__DEV__) {
+                console.warn('命中 eagerState', fiber);
+            }
+        }
+    }
+
     enqueueUpdate(fiber, updateQueue, update, lane);
     scheduleUpdateOnFiber(fiber, lane);
 }

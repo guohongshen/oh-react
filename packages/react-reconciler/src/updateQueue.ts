@@ -7,6 +7,8 @@ export interface Update<State> {
     action: Action<State>;
     lane: Lane;
     next: Update<any> | null; // QUESTION 新的 state 和旧的不是一个类型
+    hasEagerState: boolean;
+    eagerState: State | null;
 }
 
 export interface UpdateQueue<State = any> {
@@ -16,17 +18,25 @@ export interface UpdateQueue<State = any> {
          */
         pending: Update<State> | null;
     };
+    /**
+     * eagerState 相关，等同于 hook.memoizedState，为什么放在这里是因为让 dispatchState 取着方便。
+     */
+    lastRenderedState?: State;
     dispatch: Dispatch<State> | null;
 }
 
 export function createUpdate<State>(
     action: Action<State>,
-    lane: Lane
+    lane: Lane,
+    hasEagerState = false,
+    eagerState = null
 ): Update<State> {
     return {
         action,
         lane,
-        next: null
+        next: null,
+        hasEagerState,
+        eagerState
     };
 }
 
@@ -118,16 +128,13 @@ export function processUpdateQueue<State>(
                     newBaseQueueLast = clone;
                 }
 
-                // 参与计算
-                const action = pending.action;
-                if (action instanceof Function) {
-                    // baseState 2 update x => 3x -> memoizedState 6
-                    newMemoizedState = action(newMemoizedState);
+                if (pending.hasEagerState) {
+                    newMemoizedState = pending.eagerState;
                 } else {
-                    // baseState 1 update 2 -> memoizedState 2
-                    newMemoizedState = action;
+                    // 参与计算
+                    const action = pending.action;
+                    newMemoizedState = basicStateReducer(newMemoizedState, action);
                 }
-
             }
             pending = pending.next as Update<any>;
         } while (pending !== first)
@@ -144,4 +151,23 @@ export function processUpdateQueue<State>(
     }
 
     return result;
+}
+
+/**
+ * 根据 base 和 action 计算出新的 state 值。
+ * @param base 
+ * @param action 
+ * @returns 
+ */
+export function basicStateReducer<State>(
+    base: State,
+    action: Action<State>
+): State {
+    if (action instanceof Function) {
+        // baseState 2 update x => 3x -> memoizedState 6
+        return action(base);
+    } else {
+        // baseState 1 update 2 -> memoizedState 2
+        return action;
+    }
 }
