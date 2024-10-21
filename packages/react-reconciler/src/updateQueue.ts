@@ -19,7 +19,8 @@ export interface UpdateQueue<State = any> {
         pending: Update<State> | null;
     };
     /**
-     * eagerState 相关，等同于 hook.memoizedState，为什么放在这里是因为让 dispatchState 取着方便。
+     * eagerState 相关，等同于 hook.memoizedState，为什么放在这里是因为让
+     * dispatchState 内部取着方便。
      */
     lastRenderedState?: State;
     dispatch: Dispatch<State> | null;

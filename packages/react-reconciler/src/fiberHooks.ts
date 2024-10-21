@@ -47,7 +47,6 @@ export interface Effect {
 
 export interface FCUpdateQueue<State = any> extends UpdateQueue<State>{
     lastEffect: Effect | null;
-    lastRenderedState: State;
 }
 
 export function renderWithHooks(wip: FiberNode, lane: Lane) {
