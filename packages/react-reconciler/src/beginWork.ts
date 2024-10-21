@@ -2,16 +2,74 @@ import { ReactElement } from "shared/ReactTypes";
 import { FiberNode, OffscreenProps, createFiberFromFragment, createFiberFromOffscreen, createWorkInProgress } from "./fiber";
 import { UpdateQueue, processUpdateQueue } from "./updateQueue";
 import { WorkTag } from "./workTags";
-import { mountChildFibers, reconcileChildFibers } from "./childFibers";
-import { renderWithHooks } from "./fiberHooks";
-import { Lane, NoLane, NoLanes } from "./fiberLanes";
+import { cloneChildFibers, mountChildFibers, reconcileChildFibers } from "./childFibers";
+import { bailoutHook, renderWithHooks } from "./fiberHooks";
+import { Lane, NoLane, NoLanes, includeLanes } from "./fiberLanes";
 import { ChildDeletion, DidCapture, NoFlags, Placement, Ref } from "./fiberFlags";
 import { pushContextValue } from "./fiberContext";
 import { pushSuspenseFiber } from "./SuspenseStack";
 
+/**
+ * 即没有命中 bailout 策略。didReceiveUpdate 意为接受更新。
+ */
+let didReceiveUpdate = false;
+export function markWipReceiveUpdate() {
+    didReceiveUpdate = true;
+}
+
 // 递归中的递阶段
 export function beginWork(wip: FiberNode, renderLane: Lane) {
-    // TODO bailout 策略：
+    didReceiveUpdate = false;
+    const current = wip.alternate;
+    // bailout 策略 之 第一次判断：
+    if (current !== null) {
+        const oldProps = current.memoizedProps;
+        const newProps = wip.pendingProps;
+
+        if (
+            oldProps !== newProps || // 对于 hostRootFiber 来讲，新旧 props 永远不相等，
+            // 因为每次 renderRoot 都会，prepareFreshStack，里面会调用 createWorkInProgress，
+            // 参数传入一个空的 props 对象，所以把 hostRoot 的 bailout 逻辑加在了 beginWorkOnHostRoot
+            // 里面。
+            current.type !== wip.type
+        ) { // 四要素之 props、type 改变了
+            didReceiveUpdate = true;
+        } else { // 四要素之 props、type 不变
+            /**
+             * fiber 含有优先级为 renderLane 的 update。
+             * 原名：hasScheduledStateOrContext
+             */
+            const hasUpdateWithRenderLane = doesFiberLanesIncludeRenderLane( // 四要素之 state context 不变
+                current,
+                renderLane
+            );
+            if (!hasUpdateWithRenderLane) {
+                // 命中 bailout
+                didReceiveUpdate = false; // 赋不赋值都行，反正之后都 return 了
+
+                switch (wip.tag) {
+                    case WorkTag.ContextProvider:
+                        const newValue = wip.memoizedProps.value;
+                        const context = wip.type._context;
+                        pushContextValue(context, newValue);
+                        // TODO 应该比较下新旧  context value，看下是否变化
+                        // 如果变化了，需要将用到的子节点都启动更新。
+                        break;
+                    // TODO Suspense 也要入下栈
+                }
+                return bailoutOnAlreadyFinishedWork(
+                    wip,
+                    renderLane
+                );
+            }
+            // hasUpdateWithRenderLane 为 true 的话，先不要急着把 cannotBailout 置为 true
+            // 因为有可能计算出来的 state 等于旧的 state。所以在第二次判断(具体在 renderWithHook)
+            // 里如果新旧 state 相等，再把 cannotBailout 置为 false。
+
+            // TODO 如果 Context value 变化，需要给其下的消费者都打上 renderLane
+        }
+    }
+    // 第一次判断如果无法 bailout，就需要在 beginWorkOnXxx 内进行更具体的第二次判断。
 
     wip.lanes = NoLanes; // 先置空，后面把跳过的更新的 lane 再加进来就好了
 
@@ -51,10 +109,30 @@ function beginWorkOnHostRoot(wip: FiberNode, renderLane: Lane) {
     const updateQueue = wip.updateQueue as UpdateQueue<ReactElement>;
     const pending = updateQueue.shared.pending;
     updateQueue.shared.pending = null;
+
+    const prevChildren = wip.memoizedState;
+
     const res = processUpdateQueue(baseState, pending, renderLane);
     wip.memoizedState = res.memoizedState;
 
+    const current = wip.alternate;
+    // 考虑 RootDidNotComplete 的情况，需要复用 memoizedState QUESTION 这里没看懂做什么的
+    if (current !== null) {
+        if (!current.memoizedState) {
+            current.memoizedState = res.memoizedState
+        }
+    }
+
     const nextChildren = wip.memoizedState;
+    if (prevChildren === nextChildren) { // 如果用户只在初始时调用了一次 createRoot()
+        // 的 render 方法，那么之后每一次更新 hostRootFiber 的 updateQueue 都为空，
+        // processUpdateQueue 返回的就初始时计算出来的 memoizedState。memoizedState 是 children
+
+        return bailoutOnAlreadyFinishedWork(
+            wip,
+            renderLane
+        );
+    }
     reconcileChildren(wip, nextChildren);
     return wip.child;
 }
@@ -80,6 +158,20 @@ function beginWorkOnHostComponent(wip: FiberNode) {
  */
 function beginWorkOnFunctionComponent(wip: FiberNode, renderLane: Lane) {
     const nextChildren = renderWithHooks(wip, renderLane);
+
+    const current = wip.alternate;
+    if (current !== null && !didReceiveUpdate) {
+        // 这里可能乍一看有点迷，梳理下：对于 FunctionComponent，第一次判断时如果命中
+        // 则 bailout，不能则将 cannotBailout 置为 true，
+        // 然后在 beginWorkOnFunctionComponent 进行第二次判断，renderWithHook 里面
+        // 计算 state 的时候如果计算出来的 state 改变了，则将 cannotBailout 置为 true
+        bailoutHook(wip, renderLane);
+        return bailoutOnAlreadyFinishedWork(
+            wip,
+            renderLane
+        );
+    }
+
     reconcileChildren(wip, nextChildren);
     return wip.child;
 }
@@ -322,4 +414,35 @@ export function markRef(current: FiberNode | null, workInProgress: FiberNode) {
         workInProgress.flags |= Ref;
     }
     // 其他情况不需要动
+}
+
+/**
+ * fiber.lanes 是否包含 renderLane。
+ * 原名：checkScheduledUpdateOrContext。
+ * @param current 
+ * @param renderLane 
+ * @returns 
+ */
+function doesFiberLanesIncludeRenderLane(current: FiberNode, renderLane: Lane): boolean {
+    const updateLanes = current.lanes;
+    if (includeLanes(updateLanes, renderLane)) {
+        return true;
+    }
+    return false;
+}
+
+function bailoutOnAlreadyFinishedWork(
+    wip: FiberNode,
+    renderLane: Lane
+) {
+    if (!includeLanes(wip.childLanes, renderLane)) { // 那么整个子树都可以跳过
+        if (__DEV__) {
+            console.warn('bailout 整颗子树', wip);
+        }
+        return null;
+    }
+    if (__DEV__) {
+        console.warn('bailout 一个 fiber', wip);
+    }
+    return cloneChildFibers(wip);
 }

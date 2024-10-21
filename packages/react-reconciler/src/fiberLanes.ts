@@ -117,6 +117,38 @@ export function schedulerPriorityToLane(priority: Priority) {
     return NoLane;
 }
 
-export function isSubsetOfLanes(subset: Lanes, set: Lanes) {
+/**
+ * subset 是否是 set 的子集。
+ * 原名：isSubsetOfLanes
+ * @param subset 
+ * @param set 
+ * @returns 
+ */
+export function isSubset(subset: Lanes, set: Lanes) {
     return (set & subset) === subset;
 }
+
+/**
+ * set 中是否包含 subset。
+ * 原名：includeSomeLanes
+ * @param set 
+ * @param subset 
+ * @returns 
+ */
+export function includeLanes(set: Lanes, subset: Lane | Lanes): boolean {
+    return (set & subset) !== NoLanes;
+}
+
+/**
+ * 从 set 中移除 subset。
+ * @param set 
+ * @param subset 
+ * @returns 
+ */
+export function removeLanes(
+    set: Lane,
+    subset: Lanes | Lane
+): Lanes {
+    return set & ~subset;
+}
+

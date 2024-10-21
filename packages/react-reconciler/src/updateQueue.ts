@@ -1,6 +1,6 @@
 import { Action } from "shared/ReactTypes";
 import { Dispatch } from "react/src/currentDispatcher";
-import { Lane, NoLane, isSubsetOfLanes, mergeLanes } from "./fiberLanes";
+import { Lane, NoLane, isSubset, mergeLanes } from "./fiberLanes";
 import { FiberNode } from "./fiber";
 
 export interface Update<State> {
@@ -94,7 +94,7 @@ export function processUpdateQueue<State>(
 
         do {
             lane = pending.lane;
-            if (!isSubsetOfLanes(lane, renderLane)) {
+            if (!isSubset(lane, renderLane)) {
                 // 优先级不够 跳过
                 const clone = createUpdate( // clone 是偷懒了，不想破坏原链表的结构
                     pending.action,

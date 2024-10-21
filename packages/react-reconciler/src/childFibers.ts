@@ -423,3 +423,26 @@ function useAsFragmentFiberOrCreate(
     fiber.return = returnFiber;
     return fiber;
 }
+
+export function cloneChildFibers(wip: FiberNode) {
+    if (wip.child === null) return null;
+    let currentChild = wip.child; // wip 是由 createWorkInProgress 创建的，其内部
+    // 会将 current.child 赋值给 wip.child
+    let newChild = createWorkInProgress(
+        currentChild,
+        currentChild.pendingProps
+    );
+    wip.child = newChild;
+    newChild.return = wip;
+    let lastNewChild = newChild;
+    while (currentChild.sibling !== null) {
+        currentChild = currentChild.sibling;
+        lastNewChild.sibling = createWorkInProgress(
+            currentChild,
+            currentChild.pendingProps
+        );
+        lastNewChild = currentChild;
+        lastNewChild.return = wip;
+    }
+    return newChild;
+}

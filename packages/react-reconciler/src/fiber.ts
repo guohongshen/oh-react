@@ -142,7 +142,8 @@ export class FiberRootNode {
 
 /**
  * 如果 current.alternate !== null，则对 alternate 的某些属性重新赋值即可完成复用，
- * 否则就创建一个全新的 FiberNode，并将引用赋值给 current.alternate。
+ * 否则就创建一个全新的 FiberNode，并将引用赋值给 current.alternate。注意：内部将
+ * current.child 赋值给 wip.child。
  * @param current 
  * @param pendingProps 
  * @returns 
