@@ -443,6 +443,7 @@ function dispatchSetState<State>(
             if (__DEV__) {
                 console.warn('命中 eagerState', fiber);
             }
+            return;
         }
     }
 
