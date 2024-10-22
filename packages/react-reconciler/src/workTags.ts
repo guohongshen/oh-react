@@ -6,7 +6,8 @@ export enum WorkTag {
     Fragment = 7,
     ContextProvider = 8,
     Suspense = 9,
-    Offscreen = 10
+    Offscreen = 10,
+    Memo = 11
 }
 
 export const WorkTagToName = {
@@ -17,5 +18,6 @@ export const WorkTagToName = {
     [WorkTag.HostText]: 'HostText',
     [WorkTag.ContextProvider]: 'ContextProvider',
     [WorkTag.Suspense]: 'Suspense',
-    [WorkTag.Offscreen]: 'Offscreen'
+    [WorkTag.Offscreen]: 'Offscreen',
+    [WorkTag.Memo]: 'Memo'
 }

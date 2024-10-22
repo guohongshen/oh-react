@@ -3,7 +3,7 @@ import { FiberNode } from "./fiber";
 import { WorkTag } from "./workTags";
 import { NoFlags, Ref, Update, Visibility } from "./fiberFlags";
 import { popContextValue } from "./fiberContext";
-import { popSuspenseFiber } from "./SuspenseStack";
+import { popSuspenseFiber } from "./suspenseStack";
 import { NoLanes } from "./fiberLanes";
 // import { injectProps } from "react-dom/src/SyntheticEvent";
 
@@ -101,6 +101,9 @@ export function completeWork(wip: FiberNode) {
 
             popSuspenseFiber();
         case WorkTag.Offscreen:
+            updateSubtreeFlagsAndChildLanes(wip);
+            return null;
+        case WorkTag.Memo:
             updateSubtreeFlagsAndChildLanes(wip);
             return null;
         default:

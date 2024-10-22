@@ -1,6 +1,6 @@
 import { Key, Props, ReactElement } from "shared/ReactTypes";
 import { FiberNode, createWorkInProgress } from "./fiber";
-import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE, REACT_PROVIDER_TYPE, REACT_SUSPENSE_TYPE } from "shared/ReactSymbols";
+import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE, REACT_MEMO_TYPE, REACT_PROVIDER_TYPE, REACT_SUSPENSE_TYPE } from "shared/ReactSymbols";
 import { WorkTag } from "./workTags";
 import { ChildDeletion, Placement } from "./fiberFlags";
 
@@ -361,15 +361,26 @@ function ChildReconciler(shouldTrackEffects: boolean) {
 export const reconcileChildFibers = ChildReconciler(true);
 export const mountChildFibers = ChildReconciler(false);
 
-function createFiberFromElement(element: ReactElement): FiberNode {
+export function createFiberFromElement(element: ReactElement): FiberNode {
     const { type, key, props, ref } = element;
     let fiberTag: WorkTag = WorkTag.FunctionComponent;
 
     if (typeof type === 'string') {
         // <div/> type: 'div
         fiberTag = WorkTag.HostComponent;
-    } else if (typeof type === 'object' && type.$$typeof === REACT_PROVIDER_TYPE) {
-        fiberTag = WorkTag.ContextProvider;
+    } else if (typeof type === 'object') {
+        switch (type.$$typeof) {
+            case REACT_PROVIDER_TYPE:
+                fiberTag = WorkTag.ContextProvider;
+                break;
+            case REACT_MEMO_TYPE:
+                fiberTag = WorkTag.Memo;
+                break;
+            default:
+                console.warn('createFiberFromElement 遇到未定义的 type 处理', element);
+                break;
+        }
+        
     } else if (type === REACT_SUSPENSE_TYPE) {
         fiberTag = WorkTag.Suspense;
     } else if (typeof type !== 'function' && __DEV__) {

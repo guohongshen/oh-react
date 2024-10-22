@@ -3,6 +3,7 @@ import currentDispatcher from "./src/currentDispatcher";
 import { jsxDEV, jsx, isValidElement as _isValidElement } from "./src/jsx";
 import ReactCurrentBatchConfig from "./src/currentBatchConfig";
 import { ReactContext, Usable } from "shared/ReactTypes";
+export { memo } from "./src/memo";
 export * from './src/context';
 export {
     REACT_FRAGMENT_TYPE as Fragment,

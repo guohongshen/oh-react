@@ -2,12 +2,14 @@ import { ReactElement } from "shared/ReactTypes";
 import { FiberNode, OffscreenProps, createFiberFromFragment, createFiberFromOffscreen, createWorkInProgress } from "./fiber";
 import { UpdateQueue, processUpdateQueue } from "./updateQueue";
 import { WorkTag } from "./workTags";
-import { cloneChildFibers, mountChildFibers, reconcileChildFibers } from "./childFibers";
+import { cloneChildFibers, createFiberFromElement, mountChildFibers, reconcileChildFibers } from "./childFibers";
 import { bailoutHook, renderWithHooks } from "./fiberHooks";
 import { Lane, NoLane, NoLanes, includeLanes } from "./fiberLanes";
 import { ChildDeletion, DidCapture, NoFlags, Placement, Ref } from "./fiberFlags";
 import { pushContextValue } from "./fiberContext";
-import { pushSuspenseFiber } from "./SuspenseStack";
+import { pushSuspenseFiber } from "./suspenseStack";
+import { shallowEqual } from "shared/shallowEquals";
+import { REACT_ELEMENT_TYPE } from "shared/ReactSymbols";
 
 /**
  * 即没有命中 bailout 策略。didReceiveUpdate 意为接受更新。
@@ -90,6 +92,8 @@ export function beginWork(wip: FiberNode, renderLane: Lane) {
             return beginWorkOnSuspense(wip);
         case WorkTag.Offscreen:
             return beginWorkOnOffscreen(wip);
+        case WorkTag.Memo:
+            return beginWorkOnMemo(wip, renderLane);
         default:
             if (__DEV__) {
                 console.warn('beginWork 未实现的类型', wip);
@@ -382,6 +386,47 @@ function beginWorkOnOffscreen(wip: FiberNode) {
     const nextChildren = nextProps.children;
     reconcileChildren(wip, nextChildren);
     return wip.child;
+}
+
+function beginWorkOnMemo(wip: FiberNode, renderLane: Lane) {
+    const current = wip.alternate;
+    const nextProps = wip.pendingProps;
+    let newChildFiber = null;
+
+    if (current !== null) {
+        const currentChild = current.child as FiberNode;
+        const prevProps = currentChild.memoizedProps;
+        if (
+            shallowEqual(prevProps, nextProps) &&
+            current.ref === wip.ref
+        ) {
+            didReceiveUpdate = false;
+            return bailoutOnAlreadyFinishedWork(
+                wip,
+                renderLane
+            );
+        }
+        newChildFiber = createWorkInProgress(
+            currentChild,
+            nextProps
+        );
+        newChildFiber.ref = wip.ref;
+        newChildFiber.return = wip;
+        wip.child = newChildFiber;
+        return newChildFiber;
+    }
+    newChildFiber = createFiberFromElement({
+        $$typeof: REACT_ELEMENT_TYPE,
+        type: wip.type.type,
+        props: nextProps,
+        key: wip.key,
+        ref: wip.ref,
+        __mark: 'hongshen.guo'
+    });
+    newChildFiber.ref = wip.ref;
+    newChildFiber.return = wip;
+    wip.child = newChildFiber;
+    return newChildFiber;
 }
 
 /**
