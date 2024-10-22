@@ -49,6 +49,9 @@ export interface FCUpdateQueue<State = any> extends UpdateQueue<State>{
     lastEffect: Effect | null;
 }
 
+/** useCallback 的依赖数组 */
+export type HookDeps = any[] | null;
+
 export function renderWithHooks(wip: FiberNode, lane: Lane) {
     currentlyRenderingFiber = wip;
     // 重置 hooks 链表
@@ -84,7 +87,9 @@ const HooksDispatcherOnMount: Dispatcher = {
     useTransition: mountTransition,
     useRef: mountRef,
     useContext: readContext,
-    use: use
+    use: use,
+    useMemo: mountMemo,
+    useCallback: mountCallback
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
@@ -93,7 +98,9 @@ const HooksDispatcherOnUpdate: Dispatcher = {
     useTransition: updateTransition,
     useRef: updateRef,
     useContext: readContext,
-    use: use
+    use: use,
+    useMemo: updateMemo,
+    useCallback: updateCallback
 };
 
 function mountState<State>(
@@ -303,6 +310,46 @@ function use<T>(usable: Usable<T>): T {
     throw new Error('use 参数类型不对：' + usable);
 }
 
+function mountCallback<T>(callback: T, deps: HookDeps | undefined) {
+    const hook = mountWorkInProgressHook();
+    const nextDeps = deps === undefined ? null : deps;
+    hook.memoizedState = [callback, nextDeps];
+    return callback;
+}
+
+function updateCallback<T>(callback: T, deps: HookDeps | undefined) {
+    const hook = updateWorkInProgressHook();
+    const nextDeps = deps === undefined ? null : deps;
+    const prevState = hook.memoizedState;
+    const prevDeps = prevState[1];
+    if (areHookInputsEqual(nextDeps, prevDeps)) {
+        return prevState[0];
+    }
+    hook.memoizedState = [callback, nextDeps];
+    return callback;
+}
+
+function mountMemo<T>(nextCreate: () => T, deps: HookDeps | undefined) {
+    const hook = mountWorkInProgressHook();
+    const nextDeps = deps === undefined ? null : deps;
+    const nextValue = nextCreate();
+    hook.memoizedState = [nextValue, nextDeps];
+    return nextValue;
+}
+
+function updateMemo<T>(nextCreate: () => T, deps: HookDeps | undefined) {
+    const hook = updateWorkInProgressHook();
+    const nextDeps = deps === undefined ? null : deps;
+    const prevState = hook.memoizedState;
+    const prevDeps = prevState[1];
+    if (areHookInputsEqual(nextDeps, prevDeps)) {
+        return prevState[0];
+    }
+    const nextValue = nextCreate();
+    hook.memoizedState = [nextValue, nextDeps];
+    return nextValue;
+}
+
 /**
  * 原名：resetHooksOnUnwind
  */
@@ -498,7 +545,14 @@ function pushEffect(
     return effect;
 }
 
-function areHookInputsEqual(nextDeps: EffectDeps, prevDeps: EffectDeps) {
+/**
+ * nextDeps 和 prevDeps 只要有一个为 null 就返回 false；属性个数不一样也返回 false；
+ * 个数一样就浅比较。
+ * @param nextDeps 
+ * @param prevDeps 
+ * @returns 
+ */
+function areHookInputsEqual(nextDeps: HookDeps, prevDeps: HookDeps) {
     if (prevDeps === null || nextDeps === null) {
         return false; // 如果没有传递 deps 会进到这里来
     }
