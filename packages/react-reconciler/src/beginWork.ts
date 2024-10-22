@@ -423,6 +423,9 @@ function beginWorkOnMemo(wip: FiberNode, renderLane: Lane) {
         ref: wip.ref,
         __mark: 'hongshen.guo'
     });
+    // 注意：React 17 这里是直接调用 beginWorkOnFunctionComponent(wip)，也即 memo
+    // 和被包裹的组件公用一个 fiber，big-react 也是这种实现；React 18 不是共用的，是各
+    // 有各的 fiber，我这里采用的是这种。
     newChildFiber.ref = wip.ref;
     newChildFiber.return = wip;
     wip.child = newChildFiber;
