@@ -6,7 +6,7 @@ import { cloneChildFibers, createFiberFromElement, mountChildFibers, reconcileCh
 import { bailoutHook, renderWithHooks } from "./fiberHooks";
 import { Lane, NoLane, NoLanes, includeLanes } from "./fiberLanes";
 import { ChildDeletion, DidCapture, NoFlags, Placement, Ref } from "./fiberFlags";
-import { pushContextValue } from "./fiberContext";
+import { prepareToReadContext, propagateContextChange, pushContextValue } from "./fiberContext";
 import { pushSuspenseFiber } from "./suspenseStack";
 import { shallowEqual } from "shared/shallowEquals";
 import { REACT_ELEMENT_TYPE } from "shared/ReactSymbols";
@@ -37,15 +37,11 @@ export function beginWork(wip: FiberNode, renderLane: Lane) {
         ) { // 四要素之 props、type 改变了
             didReceiveUpdate = true;
         } else { // 四要素之 props、type 不变
-            /**
-             * fiber 含有优先级为 renderLane 的 update。
-             * 原名：hasScheduledStateOrContext
-             */
-            const hasUpdateWithRenderLane = doesFiberLanesIncludeRenderLane( // 四要素之 state context 不变
+            const hasRenderLane = doesFiberLanesIncludeRenderLane( // 四要素之 state context 不变
                 current,
                 renderLane
             );
-            if (!hasUpdateWithRenderLane) {
+            if (!hasRenderLane) {
                 // 命中 bailout
                 didReceiveUpdate = false; // 赋不赋值都行，反正之后都 return 了
 
@@ -87,7 +83,7 @@ export function beginWork(wip: FiberNode, renderLane: Lane) {
         case WorkTag.Fragment:
             return beginWorkOnFragment(wip);
         case WorkTag.ContextProvider:
-            return beginWorkOnContextProvider(wip);
+            return beginWorkOnContextProvider(wip, renderLane);
         case WorkTag.Suspense:
             return beginWorkOnSuspense(wip);
         case WorkTag.Offscreen:
@@ -161,6 +157,7 @@ function beginWorkOnHostComponent(wip: FiberNode) {
  * @returns 
  */
 function beginWorkOnFunctionComponent(wip: FiberNode, renderLane: Lane) {
+    prepareToReadContext(wip, renderLane);
     const nextChildren = renderWithHooks(wip, renderLane);
 
     const current = wip.alternate;
@@ -194,11 +191,28 @@ function beginWorkOnFragment(wip: FiberNode) {
     return wip.child;
 }
 
-function beginWorkOnContextProvider(wip: FiberNode) {
+function beginWorkOnContextProvider(wip: FiberNode, renderLane: Lane) {
     const provider = wip.type;
     const context = provider._context;
     const nextProps = wip.pendingProps;
-    pushContextValue(context, nextProps.value)
+
+    const oldProps = wip.memoizedProps;
+    const newValue = nextProps.value;
+debugger;
+    pushContextValue(context, newValue);
+    if (oldProps !== null) {
+        const oldValue = oldProps.value;
+        if (
+            Object.is(oldValue, newValue) &&
+            oldProps.children === nextProps.children // 如果 children 变了的话，就需要走 reconcile 了
+            // 所以可以把 children 走手动 bailout 逻辑，也即用 useMemo 包一下
+        ) {
+            return bailoutOnAlreadyFinishedWork(wip, renderLane);
+        } else {
+            propagateContextChange(wip, context, renderLane);
+        }
+    }
+
     const nextChildren = nextProps.children;
     reconcileChildren(wip, nextChildren);
     return wip.child;
@@ -466,7 +480,11 @@ export function markRef(current: FiberNode | null, workInProgress: FiberNode) {
 
 /**
  * fiber.lanes 是否包含 renderLane。
- * 原名：checkScheduledUpdateOrContext。
+ * 原名：checkScheduledUpdateOrContext，原名的意思是 current 上是否有优先级为 renderLane
+ * 的 update 或者有优先级为 renderLane 的 context 更新。当某次优先级为 lane 的更新进行
+ * 时，某个 context 值发生了改变，那么使用了该 context 的 fiber 的 lanes 就会被添加
+ * lane，组件就需要重新 render。所以原名起得没问题，组件存在更新需要 render，这种更新可
+ * 能是 update 引起的，有可能是 context 引起的。
  * @param current 
  * @param renderLane 
  * @returns 
@@ -479,6 +497,13 @@ function doesFiberLanesIncludeRenderLane(current: FiberNode, renderLane: Lane): 
     return false;
 }
 
+/**
+ * 根据 wip.childLanes 是否包含 renderLanes 决定仅仅 bailout 该 wip 节点还是 bailout
+ *  整个 wip 树。
+ * @param wip 
+ * @param renderLane 
+ * @returns 
+ */
 function bailoutOnAlreadyFinishedWork(
     wip: FiberNode,
     renderLane: Lane

@@ -6,6 +6,24 @@ import { UpdateQueue } from "./updateQueue";
 import { Lane, Lanes, NoLane, NoLanes } from "./fiberLanes";
 import { Effect } from "./fiberHooks";
 import { REACT_FRAGMENT_TYPE } from "shared/ReactSymbols";
+import { ContextItem } from "./fiberContext";
+
+/**
+ * fiber's dependencies，用来记录函数组件使用了哪些 context。
+ */
+interface FiberDependencies<Value> {
+    firstContext: ContextItem<Value> | null;
+    /**
+     * 某次更新时，某个 context 的 value 发生了变化，那么 propagateContextChange 就
+     * 会被调用，使用了该 context 的 fiber 的 lanes 会被加入 renderLane、
+     * dependencies.lanes（本字段）也会被加入 renderLane。那么等到 beginWork 到该 fiber
+     * 时，执行到 prepareReadContext 时，因为 deps.lanes 包含 renderLane，所以将
+     * didReceiveUpdate 置为 true，函数组件就不可能 bailout 了。但是每次 readContext 时
+     * 本字段会被置为 NoLanes。
+     * 对 lanes 字段的更多讨论见 prepareToReadContext 内。
+     */
+    lanes: Lanes;
+}
 
 export class FiberNode {
     tag: WorkTag;
@@ -44,6 +62,11 @@ export class FiberNode {
     childLanes: Lanes;
 
     ref: any;
+
+    /**
+     * fiber's dependencies，用来存储函数组件使用了哪些 context。
+     */
+    dependencies: FiberDependencies<any> | null;
     constructor(tag: WorkTag, pendingProps: Props, key: Key) {
         this.tag = tag;
         this.tagName = WorkTagToName[tag];
@@ -73,6 +96,8 @@ export class FiberNode {
         // bailout 相关
         this.lanes = NoLanes;
         this.childLanes = NoLanes;
+
+        this.dependencies = null;
     }
 }
 
@@ -182,6 +207,12 @@ export function createWorkInProgress(
 
     wip.lanes = current.lanes;
     wip.childLanes = current.childLanes;
+
+    const currentDeps = current.dependencies;
+    wip.dependencies = currentDeps === null ? null : {
+        lanes: currentDeps.lanes,
+        firstContext: currentDeps.firstContext
+    };
 
     return wip;
 }

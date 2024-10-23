@@ -1,5 +1,31 @@
 {
     "cSpell.words": [
         "Wakeable"
-    ]
+    ],
+    "todo-tree.highlights.customHighlight": {
+        "BUG": {
+            "icon": "bug"
+        },
+        "HACK": {
+            "icon": "tools"
+        },
+        "FIXME": {
+            "icon": "flame"
+        },
+        "XXX": {
+            "icon": "x"
+        },
+        "[ ]": {
+            "icon": "issue-draft"
+        },
+        "[x]": {
+            "icon": "issue-closed"
+        },
+        "O->": { // 跳出传送门
+            "iconColour": "#66a3ff"
+        },
+        "->O": { // 进入传送门
+            "iconColour": "#66a3ff"
+        }
+    }
 }

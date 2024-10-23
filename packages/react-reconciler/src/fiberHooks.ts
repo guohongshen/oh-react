@@ -11,6 +11,7 @@ import currentBatchConfig from "react/src/currentBatchConfig";
 import { REACT_CONTEXT_TYPE } from "shared/ReactSymbols";
 import { getThenableValueOrThrowReasonOrTrackThenable } from "./thenbale";
 import { markWipReceiveUpdate } from "./beginWork";
+import { readContext as originalReadContext } from "./fiberContext";
 
 let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
@@ -288,11 +289,10 @@ function updateRef<T>(initialValue: T): { current: T } {
 
 function readContext<T>(context: ReactContext<T>): T {
     const consumer = currentlyRenderingFiber;
-    if (consumer === null) { // 意外🉐地在函数组件外调用 useContext，报错
-        throw new Error('只能在函数组件中调用 useContext');
-    }
-    const value = context._currentValue;
-    return value;
+    return originalReadContext(
+        consumer,
+        context
+    );
 }
 
 function use<T>(usable: Usable<T>): T {
