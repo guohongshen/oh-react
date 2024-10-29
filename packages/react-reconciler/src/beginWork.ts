@@ -198,7 +198,7 @@ function beginWorkOnContextProvider(wip: FiberNode, renderLane: Lane) {
 
     const oldProps = wip.memoizedProps;
     const newValue = nextProps.value;
-debugger;
+
     pushContextValue(context, newValue);
     if (oldProps !== null) {
         const oldValue = oldProps.value;
